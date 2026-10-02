@@ -28,6 +28,9 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run test:unit
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:webview
+      - run: npm run check:notices
       - run: npm run build:prod
       - run: npm run check:vsix
       - run: npm run package

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Security fixture: markup and script in names, documentation and CDATA must render as text. -->
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_Hostile" targetNamespace="http://bpmn.io/schema/bpmn" modeler:executionPlatform="Camunda Cloud" modeler:executionPlatformVersion="8.8.0">
+  <bpmn:process id="Process_Hostile" name="&lt;script&gt;window.__pwned='process'&lt;/script&gt;" isExecutable="true">
+    <bpmn:startEvent id="Start" name="&lt;img src=x onerror=&quot;window.__pwned='img'&quot;&gt;" />
+    <bpmn:task id="Task" name="&lt;svg onload=&quot;window.__pwned='svg'&quot;&gt;&lt;/svg&gt;&lt;a href=&quot;command:workbench.action.terminal.new&quot;&gt;click&lt;/a&gt;">
+      <bpmn:documentation><![CDATA[<script>window.__pwned='cdata'</script><iframe src="javascript:window.__pwned='iframe'"></iframe>]]></bpmn:documentation>
+    </bpmn:task>
+    <bpmn:textAnnotation id="Note">
+      <bpmn:text>&lt;style&gt;body{background:url(https://attacker.example/leak)}&lt;/style&gt;</bpmn:text>
+    </bpmn:textAnnotation>
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="Diagram">
+    <bpmndi:BPMNPlane id="Plane" bpmnElement="Process_Hostile">
+      <bpmndi:BPMNShape id="Start_di" bpmnElement="Start"><dc:Bounds x="100" y="100" width="36" height="36" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_di" bpmnElement="Task"><dc:Bounds x="190" y="78" width="100" height="80" /></bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Note_di" bpmnElement="Note"><dc:Bounds x="330" y="60" width="200" height="60" /></bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

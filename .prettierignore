@@ -6,3 +6,4 @@ package-lock.json
 .agents/
 test/fixtures/
 spikes/
+THIRD_PARTY_NOTICES.md

@@ -43,13 +43,85 @@
     "virtualWorkspaces": false
   },
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "bizmo.bpmn",
+        "displayName": "Bizmo BPMN Modeler",
+        "selector": [
+          {
+            "filenamePattern": "*.bpmn"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "commands": [
       {
         "command": "bizmo.showLog",
         "title": "Show Log",
         "category": "Bizmo"
+      },
+      {
+        "command": "bizmo.bpmn.openAsText",
+        "title": "Open as Text",
+        "category": "Bizmo",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "bizmo.bpmn.openDiagram",
+        "title": "Open Diagram",
+        "category": "Bizmo",
+        "icon": "$(type-hierarchy)"
       }
-    ]
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "bizmo.bpmn.openAsText",
+          "when": "activeCustomEditorId == bizmo.bpmn",
+          "group": "navigation"
+        },
+        {
+          "command": "bizmo.bpmn.openDiagram",
+          "when": "resourceExtname == .bpmn && activeEditor == workbench.editors.files.textFileEditor",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "bizmo.bpmn.openAsText",
+          "when": "resourceExtname == .bpmn",
+          "group": "navigation@20"
+        },
+        {
+          "command": "bizmo.bpmn.openDiagram",
+          "when": "resourceExtname == .bpmn",
+          "group": "navigation@21"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "bizmo.bpmn.openAsText",
+          "when": "activeCustomEditorId == bizmo.bpmn"
+        },
+        {
+          "command": "bizmo.bpmn.openDiagram",
+          "when": "resourceExtname == .bpmn && activeEditor == workbench.editors.files.textFileEditor"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Bizmo",
+      "properties": {
+        "bizmo.maxFileSizeMB": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 200,
+          "markdownDescription": "Largest model file (in MB) that Bizmo renders. Larger files can still be opened as text."
+        }
+      }
+    }
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -65,7 +137,11 @@
     "test:integration": "vscode-test",
     "package": "vsce package --no-dependencies",
     "check:vsix": "node scripts/check-vsix.mjs",
-    "vscode:prepublish": "npm run build:prod"
+    "vscode:prepublish": "npm run build:prod",
+    "pretest:webview": "npm run build",
+    "test:webview": "vitest run --config vitest.webview.config.mts",
+    "notices": "node scripts/notices.mjs",
+    "check:notices": "node scripts/notices.mjs --check"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -91,6 +167,7 @@
   "dependencies": {
     "bpmn-js": "18.31.0",
     "bpmn-js-properties-panel": "5.65.1",
-    "camunda-bpmn-js": "5.36.0"
+    "camunda-bpmn-js": "5.36.0",
+    "diagram-js": "15.28.0"
   }
 }
