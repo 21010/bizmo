@@ -1,0 +1,10 @@
+/* Same as camunda-cloud-modeler.css, but the bpmn icon font is loaded from files instead of a data: URI. */
+@import 'camunda-bpmn-js/dist/assets/diagram-js.css';
+@import 'camunda-bpmn-js/dist/assets/bpmn-js.css';
+@import 'camunda-bpmn-js/dist/assets/bpmn-font/css/bpmn.css';
+@import 'camunda-bpmn-js/dist/assets/diagram-js-minimap.css';
+@import 'camunda-bpmn-js/dist/assets/properties-panel.css';
+@import 'camunda-bpmn-js/dist/assets/color-picker.css';
+@import 'camunda-bpmn-js/dist/assets/element-templates.css';
+@import 'camunda-bpmn-js/dist/assets/element-template-chooser.css';
+@import 'camunda-bpmn-js/dist/assets/popup-menu.css';

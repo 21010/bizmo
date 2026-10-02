@@ -1,0 +1,51 @@
+{
+  "ctrlZ/noSwallow": {
+    "elementsBefore": 17,
+    "elementsAfterEdit": 19,
+    "elementsAfterCtrlZ": 17,
+    "bpmnJsUndos": 1,
+    "reimports": 1,
+    "extraEditsPosted": 0,
+    "swallowed": 0,
+    "tabDirtyAfter": 0
+  },
+  "ctrlZ/swallow": {
+    "elementsBefore": 17,
+    "elementsAfterEdit": 19,
+    "elementsAfterCtrlZ": 17,
+    "bpmnJsUndos": 0,
+    "reimports": 1,
+    "extraEditsPosted": 0,
+    "swallowed": 1,
+    "tabDirtyAfter": 0
+  },
+  "keys": {
+    "Ctrl+Y (redo)": {
+      "elements": "17→19",
+      "reimports": 1,
+      "bpmnJsUndos": 0
+    },
+    "Delete (remove selected)": {
+      "elements": "19→17",
+      "editsPosted": 1
+    },
+    "Ctrl+A (select all)": {
+      "selected": "0→16"
+    },
+    "Ctrl+C, Ctrl+V (copy/paste)": {
+      "elements": "17→17",
+      "editsPosted": 0,
+      "errors": []
+    },
+    "Ctrl+F (find)": {
+      "bpmnSearchOpen": true,
+      "vscodeFindWidget": 0
+    },
+    "Ctrl+S (save)": {
+      "tabDirty": "1→0"
+    },
+    "Ctrl+P (quick open)": {
+      "quickOpenVisible": 1
+    }
+  }
+}

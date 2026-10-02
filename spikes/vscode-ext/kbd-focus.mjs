@@ -1,0 +1,25 @@
+import { mkdtempSync, readdirSync, copyFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { _electron as electron } from 'playwright';
+const EXT = resolve('spikes/vscode-ext'); const WS = join(EXT, '.ws');
+const CODE = resolve('.vscode-test', readdirSync('.vscode-test').find((d) => d.startsWith('vscode-win32-x64-archive-1.140')), 'Code.exe');
+const target = join(WS, 'kbd-focus.bpmn'); copyFileSync(join(WS, 'c8.bpmn'), target);
+const app = await electron.launch({ executablePath: CODE, args: [`--extensionDevelopmentPath=${EXT}`, WS, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes', `--user-data-dir=${mkdtempSync(join(tmpdir(), 'bizmo-kbd-'))}`], env: { ...process.env, BIZMO_SPIKE_OPEN: target } });
+const win = await app.firstWindow();
+let frame; for (let i = 0; i < 300 && !frame; i++) { for (const f of win.frames()) { try { if (await f.evaluate(() => window.__spikeStats?.imports > 0)) frame = f; } catch {} } if (!frame) await new Promise(r => setTimeout(r, 100)); }
+await frame.evaluate(() => { window.__keys = []; window.addEventListener('keydown', (e) => window.__keys.push(e.key + (e.isTrusted ? '' : '(untrusted)')), true); });
+const focus = () => frame.evaluate(() => ({ hasFocus: document.hasFocus(), active: document.activeElement?.tagName, canvasFocused: window.__spike.modeler.get('canvas').isFocused(), keys: window.__keys.slice() }));
+console.log('initial            ', JSON.stringify(await focus()));
+const gfx = await frame.evaluateHandle(() => { const m = window.__spike.modeler; return m.get('elementRegistry').getGraphics(m.get('elementRegistry').filter((e) => e.type === 'bpmn:StartEvent')[0]); });
+await gfx.asElement().click({ force: true });
+await new Promise(r => setTimeout(r, 300));
+console.log('after click gfx    ', JSON.stringify(await focus()));
+await frame.evaluate(() => { const m = window.__spike.modeler; window.__kb = []; m.on('keyboard.keydown', 1, (e) => { window.__kb.push(e.keyEvent.key); }); });
+const probe = () => frame.evaluate(() => { const m = window.__spike.modeler; return { kb: window.__kb.slice(), elements: m.get('elementRegistry').getAll().length, selected: m.get('selection').get().map((e) => e.type), canUndo: m.get('commandStack').canUndo(), stats: window.__spikeStats }; });
+await win.keyboard.press('Delete'); await new Promise(r => setTimeout(r, 1200));
+console.log('after Delete       ', JSON.stringify(await probe()));
+await gfx.asElement().click({ force: true }).catch(() => {});
+await win.keyboard.press('Control+Z'); await new Promise(r => setTimeout(r, 1500));
+console.log('after Ctrl+Z       ', JSON.stringify(await probe()));
+await app.close();

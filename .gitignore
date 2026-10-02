@@ -7,3 +7,10 @@ coverage/
 .agents/
 .vscode/
 .env
+spikes/corpus/*
+!spikes/corpus/SOURCES.tsv
+spikes/out/
+spikes/vscode-ext/media/
+spikes/vscode-ext/.ws/
+# contains excerpts of third-party corpus files
+spikes/results/browser-spikes.json

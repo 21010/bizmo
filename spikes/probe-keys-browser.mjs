@@ -1,0 +1,27 @@
+// Same key presses in plain Chromium (no VS Code) as a baseline for S4.
+import { readFileSync } from 'node:fs';
+import { chromium } from 'playwright';
+const ORIGIN = 'http://bizmo-spike.local';
+const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1400, height: 900 }, permissions: ['clipboard-read', 'clipboard-write'] }); const p = await ctx.newPage();
+await p.route(`${ORIGIN}/**`, r => { const path = new URL(r.request().url()).pathname.slice(1);
+  if (path==='index.html') return r.fulfill({contentType:'text/html', body:`<!doctype html><html><head><link rel="stylesheet" href="${ORIGIN}/layout.css"><link rel="stylesheet" href="${ORIGIN}/c8.css"></head><body><div id="canvas"></div><div id="properties"></div><script src="${ORIGIN}/c8.js"></script></body></html>`});
+  try { return r.fulfill({ body: readFileSync('spikes/out/'+path), contentType: path.endsWith('.js')?'text/javascript':path.endsWith('.css')?'text/css':'application/octet-stream' }); } catch { return r.fulfill({status:404}); } });
+await p.goto(`${ORIGIN}/index.html?noAlign`); await p.waitForFunction(() => window.spikeReady);
+await p.evaluate(async (x) => window.spike.importXML(x), readFileSync('spikes/vscode-ext/.ws/c8.bpmn', 'utf8'));
+const probe = () => p.evaluate(() => { const m = window.spike.modeler; return { elements: m.get('elementRegistry').getAll().length, selected: m.get('selection').get().map(e => e.type), canUndo: m.get('commandStack').canUndo(), focused: m.get('canvas').isFocused() }; });
+const gfx = await p.evaluateHandle(() => { const m = window.spike.modeler; return m.get('elementRegistry').getGraphics(m.get('elementRegistry').filter((e) => e.type === 'bpmn:StartEvent')[0]); });
+await gfx.asElement().click({ force: true });
+console.log('selected   ', JSON.stringify(await probe()));
+await p.keyboard.press('Delete'); await p.waitForTimeout(300);
+console.log('Delete     ', JSON.stringify(await probe()));
+await p.keyboard.press('Control+Z'); await p.waitForTimeout(300);
+console.log('Ctrl+Z     ', JSON.stringify(await probe()));
+await p.keyboard.press('Control+A'); await p.waitForTimeout(300);
+console.log('Ctrl+A     ', JSON.stringify(await probe()));
+const gfx2 = await p.evaluateHandle(() => { const m = window.spike.modeler; return m.get('elementRegistry').getGraphics(m.get('elementRegistry').filter((e) => e.type === 'bpmn:StartEvent')[0]); });
+await gfx2.asElement().click({ force: true });
+await p.keyboard.press('Control+C'); await p.waitForTimeout(200);
+await p.mouse.move(600, 500);
+await p.keyboard.press('Control+V'); await p.waitForTimeout(500);
+console.log('Ctrl+C/V   ', JSON.stringify(await probe()));
+await b.close();

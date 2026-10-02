@@ -1,0 +1,36 @@
+{
+  "name": "bizmo-spike",
+  "displayName": "Bizmo M1 spike",
+  "description": "Throwaway prototype for spikes S2 and S4: text-backed custom editor with camunda-bpmn-js.",
+  "version": "0.0.0",
+  "publisher": "21010",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.134.0"
+  },
+  "main": "./extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "bizmoSpike.bpmn",
+        "displayName": "Bizmo spike BPMN editor",
+        "selector": [
+          {
+            "filenamePattern": "*.bpmn"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "bizmoSpike.state",
+        "title": "Spike state"
+      }
+    ]
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ]
+}

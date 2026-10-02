@@ -19,7 +19,7 @@ const unsafeDomAndEval = [
 ];
 
 export default tseslint.config(
-  { ignores: ['dist/', 'out/', 'node_modules/', '.vscode-test/', 'coverage/'] },
+  { ignores: ['dist/', 'out/', 'node_modules/', '.vscode-test/', 'coverage/', 'spikes/'] },
   eslint.configs.recommended,
   {
     files: ['**/*.ts', '**/*.mts'],
