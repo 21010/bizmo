@@ -1,3 +1,11 @@
+/* Modeler styles. The icon font is loaded from files (bpmn.css), not as a data: URI
+   (bpmn-embedded.css), so the CSP needs no `font-src data:` (ADR 0008). */
 @import 'camunda-bpmn-js/dist/assets/diagram-js.css';
 @import 'camunda-bpmn-js/dist/assets/bpmn-js.css';
+@import 'camunda-bpmn-js/dist/assets/bpmn-font/css/bpmn.css';
+@import 'camunda-bpmn-js/dist/assets/diagram-js-minimap.css';
+@import 'camunda-bpmn-js/dist/assets/color-picker.css';
+@import 'camunda-bpmn-js/dist/assets/element-templates.css';
+@import 'camunda-bpmn-js/dist/assets/element-template-chooser.css';
+@import 'camunda-bpmn-js/dist/assets/popup-menu.css';
 @import '../../core/base.css';

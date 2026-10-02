@@ -1,12 +1,12 @@
 # Bizmo — Business Process Modeler for VS Code
 
-> Work in progress. BPMN files can be **viewed** (Camunda 7 and 8); editing arrives next. See `CHANGELOG.md`.
+> Work in progress. BPMN diagrams (Camunda 7 and 8) can be created and edited; the Camunda properties panel arrives next. See `CHANGELOG.md`.
 
 Model business processes next to your code, with a secure graphical editor for each notation:
 
 | Notation                                                 | Files                             | Status  |
 | -------------------------------------------------------- | --------------------------------- | ------- |
-| BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Viewer  |
+| BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Editing |
 | DMN — Camunda 7 and Camunda 8                            | `*.dmn`                           | Planned |
 | Camunda Forms                                            | `*.form`                          | Planned |
 | Value Stream Mapping (Lean)                              | `*.vsm.json`                      | Planned |
@@ -14,9 +14,13 @@ Model business processes next to your code, with a secure graphical editor for e
 | Event Storming                                           | `*.eventstorm.json`               | Planned |
 | UML — activity, state machine, class, use case, sequence | `*.uml.json`                      | Planned |
 
-## Using the BPMN viewer
+## Using the BPMN editor
 
-- Open a `.bpmn` file: it shows as a diagram (pan and zoom with the mouse; Ctrl+scroll to zoom).
+- **New diagram:** File → New File… → "BPMN Diagram (Camunda 8)" or "(Camunda 7)", or the commands **Bizmo: New BPMN Diagram**.
+- Open a `.bpmn` file: it shows as a diagram. Model with the palette, the context pad, and keyboard shortcuts.
+- Changes go straight into the file's document: the tab shows unsaved changes, **Ctrl+S** saves, **Undo/Redo** (Ctrl+Z / Ctrl+Y, Cmd+Z / Cmd+Shift+Z on macOS) work through VS Code, and **Revert File** restores the saved version.
+- **Copy/paste** (Ctrl+C / Ctrl+V) uses the system clipboard; after pasting, click where the elements should go.
+- The XML and the diagram can be open side by side; changes in one appear in the other. If the file changes elsewhere while you are modeling, the file wins and the diagram reloads.
 - **Open as Text** (editor title bar, or right-click the file in the Explorer) switches to the XML; **Open Diagram** switches back. Both replace the current tab.
 - The execution platform (Camunda 7 or 8) is read from the file; files without that information are treated as Camunda 8.
 - Files that cannot be displayed (invalid XML, not BPMN, too large, or containing a `DOCTYPE`) show the reason and an **Open as Text** button. The size limit is the `bizmo.maxFileSizeMB` setting (default 10).
@@ -40,6 +44,7 @@ npm test                   # unit tests (Vitest)
 npx playwright install chromium   # once, for the webview tests
 npm run test:webview       # webview bundles in Chromium under the production CSP
 npm run test:integration   # VS Code integration tests (downloads VS Code)
+npm run test:e2e           # real VS Code driven with mouse and keyboard (Playwright over Electron)
 npm run notices            # regenerate THIRD_PARTY_NOTICES.md from the bundled packages
 npm run check:vsix         # verify package contents against the allowlist
 npm run package            # build .vsix
