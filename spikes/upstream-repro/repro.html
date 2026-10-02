@@ -4,12 +4,32 @@
     <meta charset="utf-8" />
     <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.31.0/dist/assets/diagram-js.css" />
     <link rel="stylesheet" href="https://unpkg.com/bpmn-js@18.31.0/dist/assets/bpmn-js.css" />
-    <link rel="stylesheet" href="https://unpkg.com/@bpmn-io/properties-panel@3.56.1/dist/assets/properties-panel.css" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/@bpmn-io/properties-panel@3.56.1/dist/assets/properties-panel.css"
+    />
     <style>
-      body { display: flex; margin: 0; font-family: sans-serif; }
-      #canvas { flex: 1; height: 400px; }
-      #properties { width: 300px; }
-      #log { position: fixed; bottom: 0; left: 0; right: 0; padding: 8px; background: #eee; white-space: pre; }
+      body {
+        display: flex;
+        margin: 0;
+        font-family: sans-serif;
+      }
+      #canvas {
+        flex: 1;
+        height: 400px;
+      }
+      #properties {
+        width: 300px;
+      }
+      #log {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 8px;
+        background: #eee;
+        white-space: pre;
+      }
     </style>
   </head>
   <body>
@@ -19,7 +39,8 @@
     <script src="https://unpkg.com/bpmn-js@18.31.0/dist/bpmn-modeler.development.js"></script>
     <script src="https://unpkg.com/bpmn-js-properties-panel@5.65.1/dist/bpmn-js-properties-panel.umd.js"></script>
     <script>
-      const { BpmnPropertiesPanelModule, BpmnPropertiesProviderModule } = window.BpmnJSPropertiesPanel;
+      const { BpmnPropertiesPanelModule, BpmnPropertiesProviderModule } =
+        window.BpmnJSPropertiesPanel;
 
       const NS =
         'xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"';
@@ -46,7 +67,7 @@
         const modeler = new BpmnJS({
           container: '#canvas',
           propertiesPanel: { parent: '#properties' },
-          additionalModules: [BpmnPropertiesPanelModule, BpmnPropertiesProviderModule]
+          additionalModules: [BpmnPropertiesPanelModule, BpmnPropertiesProviderModule],
         });
 
         const importXML = async (label, xml) => {
