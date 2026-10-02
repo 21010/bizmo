@@ -1,0 +1,67 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+#app {
+  position: relative;
+  height: 100%;
+}
+
+/* Diagrams render on a light canvas in every theme; theme-aware rendering is planned for M7. */
+.bizmo-canvas {
+  height: 100%;
+  background: #ffffff;
+}
+
+.bizmo-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  padding: 24px 32px;
+  overflow: auto;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-foreground);
+}
+
+.bizmo-overlay h2 {
+  margin: 0 0 12px;
+  font-size: 1.3em;
+  font-weight: 600;
+}
+
+.bizmo-overlay pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 12px;
+  border-left: 3px solid var(--vscode-inputValidation-errorBorder, #be1100);
+  background: var(--vscode-textBlockQuote-background);
+  font-family: var(--vscode-editor-font-family);
+}
+
+.bizmo-overlay button {
+  margin-top: 8px;
+  padding: 4px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bizmo-overlay button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.bizmo-overlay button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
