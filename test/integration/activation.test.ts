@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 
-const EXTENSION_ID = 'grzegorz-ziolo.business-process-modeler';
+const EXTENSION_ID = 'grzegorz-ziolo.bizmo';
 
 describe('extension activation', () => {
   it('activates and registers its commands', async () => {
@@ -12,6 +12,6 @@ describe('extension activation', () => {
 
     assert.equal(extension.isActive, true);
     const commands = await vscode.commands.getCommands(true);
-    assert.ok(commands.includes('processModeler.showLog'));
+    assert.ok(commands.includes('bizmo.showLog'));
   });
 });

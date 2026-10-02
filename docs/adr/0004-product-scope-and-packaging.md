@@ -6,7 +6,7 @@
 
 ## Context
 
-The project started as a Camunda BPMN modeler (`vs-camunda-bpmn`) and is evolving into **business-process-modeler**, covering BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC and swimlane flowcharts, Event Storming, and a UML subset.
+The project started as a Camunda BPMN modeler (`vs-camunda-bpmn`) and is evolving into **Bizmo** (initially named business-process-modeler; see ADR 0006), covering BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC and swimlane flowcharts, Event Storming, and a UML subset.
 
 ## Options considered
 

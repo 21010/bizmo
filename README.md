@@ -1,4 +1,4 @@
-# Business Process Modeler for VS Code
+# Bizmo — Business Process Modeler for VS Code
 
 > Work in progress — not yet usable. See `CHANGELOG.md` for status.
 

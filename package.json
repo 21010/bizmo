@@ -1,7 +1,7 @@
 {
-  "name": "business-process-modeler",
-  "displayName": "Business Process Modeler",
-  "description": "Secure business process modeling in VS Code: BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC, Event Storming, and UML.",
+  "name": "bizmo",
+  "displayName": "Bizmo — Business Process Modeler",
+  "description": "Bizmo: secure business process modeling in VS Code — BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC, Event Storming, and UML.",
   "version": "0.0.1",
   "publisher": "grzegorz-ziolo",
   "license": "MIT",
@@ -14,6 +14,7 @@
     "Other"
   ],
   "keywords": [
+    "bizmo",
     "bpmn",
     "camunda",
     "dmn",
@@ -36,9 +37,9 @@
   "contributes": {
     "commands": [
       {
-        "command": "processModeler.showLog",
+        "command": "bizmo.showLog",
         "title": "Show Log",
-        "category": "Process Modeler"
+        "category": "Bizmo"
       }
     ]
   },

@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 
 export function activate(context: vscode.ExtensionContext): void {
-  const log = vscode.window.createOutputChannel('Process Modeler', { log: true });
+  const log = vscode.window.createOutputChannel('Bizmo', { log: true });
   context.subscriptions.push(log);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('processModeler.showLog', () => {
+    vscode.commands.registerCommand('bizmo.showLog', () => {
       log.show();
     }),
   );
