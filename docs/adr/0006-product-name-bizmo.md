@@ -12,7 +12,7 @@ The working names `vs-camunda-bpmn` and `business-process-modeler` were descript
 The product is named **Bizmo** (from **biz**ness **mo**deler).
 
 - Marketplace display name: _Bizmo — Business Process Modeler_ (keeps search terms in the name).
-- Package / extension name: `bizmo`; extension ID `<publisher>.bizmo`.
+- Package / extension name: `bizmo`; extension ID `21010.bizmo` (publisher `21010`).
 - Identifier prefix: `bizmo.` for commands, custom editor view types (`bizmo.bpmn`, `bizmo.vsm`, …), and own file format IDs (`bizmo.vsm`, …).
 
 Quick availability check (2026-10-02): npm package `bizmo` free; no `bizmo` extension on Open VSX or the VS Code Marketplace; no related GitHub project. `bizmo.io` and `bizmo.app` are in use.

@@ -3,8 +3,16 @@
   "displayName": "Bizmo — Business Process Modeler",
   "description": "Bizmo: secure business process modeling in VS Code — BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC, Event Storming, and UML.",
   "version": "0.0.1",
-  "publisher": "grzegorz-ziolo",
+  "publisher": "21010",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/21010/bizmo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/21010/bizmo/issues"
+  },
+  "homepage": "https://github.com/21010/bizmo#readme",
   "private": true,
   "engines": {
     "vscode": "^1.134.0"
@@ -55,7 +63,7 @@
     "test:unit": "vitest run",
     "pretest:integration": "npm run build && node scripts/build-tests.mjs",
     "test:integration": "vscode-test",
-    "package": "vsce package --no-dependencies --allow-missing-repository",
+    "package": "vsce package --no-dependencies",
     "check:vsix": "node scripts/check-vsix.mjs",
     "vscode:prepublish": "npm run build:prod"
   },

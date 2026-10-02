@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 
-const EXTENSION_ID = 'grzegorz-ziolo.bizmo';
+const EXTENSION_ID = '21010.bizmo';
 
 describe('extension activation', () => {
   it('activates and registers its commands', async () => {
