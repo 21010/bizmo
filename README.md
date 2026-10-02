@@ -4,15 +4,15 @@
 
 Model business processes next to your code, with a secure graphical editor for each notation:
 
-| Notation                                                 | Files                             | Status         |
-| -------------------------------------------------------- | --------------------------------- | -------------- |
-| BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Viewer         |
-| DMN — Camunda 7 and Camunda 8                            | `*.dmn`                           | Planned        |
-| Camunda Forms                                            | `*.form`                          | Planned        |
-| Value Stream Mapping (Lean)                              | `*.vsm.json`                      | Planned        |
-| SIPOC and swimlane flowcharts                            | `*.sipoc.json`, `*.swimlane.json` | Planned        |
-| Event Storming                                           | `*.eventstorm.json`               | Planned        |
-| UML — activity, state machine, class, use case, sequence | `*.uml.json`                      | Planned        |
+| Notation                                                 | Files                             | Status  |
+| -------------------------------------------------------- | --------------------------------- | ------- |
+| BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Viewer  |
+| DMN — Camunda 7 and Camunda 8                            | `*.dmn`                           | Planned |
+| Camunda Forms                                            | `*.form`                          | Planned |
+| Value Stream Mapping (Lean)                              | `*.vsm.json`                      | Planned |
+| SIPOC and swimlane flowcharts                            | `*.sipoc.json`, `*.swimlane.json` | Planned |
+| Event Storming                                           | `*.eventstorm.json`               | Planned |
+| UML — activity, state machine, class, use case, sequence | `*.uml.json`                      | Planned |
 
 ## Using the BPMN viewer
 
