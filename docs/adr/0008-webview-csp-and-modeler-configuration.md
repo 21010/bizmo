@@ -30,4 +30,4 @@ font-src {webview.cspSource};
 
 - The CSP is asserted by tests (generated HTML) and by webview tests that fail on any `securitypolicyviolation`.
 - If a future library version needs a CSP relaxation, that is a security review trigger, not a silent change.
-- An upstream issue should be filed for the failed-import instance corruption (bpmn-js-properties-panel, C8 `TimerProps`).
+- Root cause of the failed-import corruption: the properties panel stores the implicit root on a failed `import.done` (analysis, reproduction, and proposed fix: `docs/upstream/bpmn-js-properties-panel-failed-import.md`). The workaround stays even after an upstream fix.
