@@ -12,6 +12,7 @@
 - **Vitest** for unit tests, **@vscode/test-cli** (mocha) for integration tests. Browser tests for the webview bundle are added in M2, when there is a webview to test.
 - **Minimum VS Code**: `^1.134.0` (provisional; about six months behind stable 1.140 at the time of writing). CI tests both the minimum and stable.
 - **Exact version pins** for dev dependencies; `npm ci` in CI.
+- **Dependabot ignores** TypeScript >=6.1, all `@types/vscode` updates (bumped together with `engines.vscode`), and `@types/node` majors (extension host runs Node 22).
 - **npm overrides**: `diff@9.0.0` and `serialize-javascript@7.1.2` replace vulnerable versions pulled in through `@vscode/test-cli` → `mocha@11`. Dev-only. Remove once `@vscode/test-cli` depends on a patched mocha.
 
 ## Consequences

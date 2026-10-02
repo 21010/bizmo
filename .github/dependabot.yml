@@ -10,6 +10,15 @@ updates:
           ['bpmn-js*', 'camunda-bpmn-*', '@bpmn-io/*', 'bpmnlint*', '@camunda/*', '*-bpmn-moddle']
       dev-tooling:
         dependency-type: development
+    ignore:
+      # typescript-eslint supports TypeScript <6.1 only (ADR 0003).
+      - dependency-name: typescript
+        versions: ['>=6.1.0']
+      # Must match engines.vscode; bump both together, deliberately.
+      - dependency-name: '@types/vscode'
+      # VS Code's extension host runs Node 22.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
