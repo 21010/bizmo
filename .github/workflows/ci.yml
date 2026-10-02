@@ -58,6 +58,11 @@ jobs:
         if: runner.os == 'Linux'
       - run: npm run test:integration
         if: runner.os != 'Linux'
+      # Real VS Code driven with trusted mouse/keyboard input (Playwright over Electron).
+      - run: xvfb-run -a npm run test:e2e
+        if: runner.os == 'Linux'
+      - run: npm run test:e2e
+        if: runner.os != 'Linux'
 
   dependency-review:
     if: github.event_name == 'pull_request'

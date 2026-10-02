@@ -24,18 +24,40 @@ for (const options of bundles({ production: true })) {
   }
 }
 
-const licenseFile = (dir) => {
-  const name = readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.(md|txt))?$/i.test(f));
+const readFirst = (dir, pattern) => {
+  const name = readdirSync(dir).find((f) => pattern.test(f));
   return name ? readFileSync(join(dir, name), 'utf8').trim() : undefined;
 };
+
+const MIT_TEXT = `Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.`;
+
+const authorOf = (pkg) =>
+  typeof pkg.author === 'string' ? pkg.author : (pkg.author?.name ?? `the ${pkg.name} authors`);
+
+/** License text: the package's license file, or the standard MIT text for MIT packages without one. */
+function licenseText(dir, pkg) {
+  const file = readFirst(dir, /^(licen[cs]e|copying)(\.(md|txt))?$/i);
+  if (file) return file;
+  if (pkg.license === 'MIT') {
+    return `MIT License (no license file in the package; standard text with the author from package.json)\n\nCopyright (c) ${authorOf(pkg)}\n\n${MIT_TEXT}`;
+  }
+  console.error(`No license text for ${pkg.name} (${pkg.license ?? 'no license field'})`);
+  process.exitCode = 1;
+  return `License: ${pkg.license ?? 'unknown'}`;
+}
 
 const sections = [...packages.entries()]
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([name, dir]) => {
     const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
-    const text =
-      licenseFile(dir) ?? `License: ${pkg.license ?? 'unknown'} (no license file in package)`;
-    return `## ${name} ${pkg.version}\n\nLicense: ${pkg.license ?? 'see below'}\n\n\`\`\`text\n${text}\n\`\`\`\n`;
+    // Apache-2.0 and some others require reproducing a NOTICE file when present.
+    const notice = readFirst(dir, /^notice(\.(md|txt))?$/i);
+    const blocks = [licenseText(dir, pkg), ...(notice ? [`NOTICE:\n\n${notice}`] : [])];
+    return `## ${name} ${pkg.version}\n\nLicense: ${pkg.license ?? 'see below'}\n\n${blocks.map((b) => `\`\`\`text\n${b}\n\`\`\`\n`).join('\n')}`;
   });
 
 const content = `# Third-Party Notices

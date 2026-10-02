@@ -49,7 +49,7 @@ async function openDiagram(uri: vscode.Uri): Promise<BpmnEditorState> {
   }, `diagram result for ${uri.fsPath}`);
 }
 
-describe('BPMN editor (M2 read-only viewer)', function () {
+describe('BPMN editor', function () {
   this.timeout(60000);
 
   before(async () => {
@@ -167,4 +167,77 @@ describe('BPMN editor (M2 read-only viewer)', function () {
     }, 'diagram editor');
     await poll(() => tabsFor().length === 1, 'text tab replaced by the diagram tab');
   });
+
+  it('creates new Camunda 8 and Camunda 7 diagrams that render and are not dirty', async () => {
+    for (const [command, platform] of [
+      ['bizmo.bpmn.newDiagramC8', 'Camunda Cloud'],
+      ['bizmo.bpmn.newDiagramC7', 'Camunda Platform'],
+    ] as const) {
+      const uri = vscode.Uri.file(join(scratch, `${String(Date.now())}-new.bpmn`));
+      await vscode.commands.executeCommand(command, uri);
+      const result = await poll(() => stateOf(uri)?.lastImport, `${command} import`);
+      assert.equal(result.ok, true);
+      assert.ok(
+        readFileSync(uri.fsPath, 'utf8').includes(`modeler:executionPlatform="${platform}"`),
+      );
+      assert.equal(documentOf(uri)?.isDirty, false);
+      await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    }
+  });
+
+  it('keeps two diagram editors of one document in sync', async () => {
+    const uri = scratchCopy('no-platform.bpmn');
+    await openDiagram(uri);
+    await vscode.commands.executeCommand('vscode.openWith', uri, VIEW_TYPE, vscode.ViewColumn.Two);
+    await poll(() => statesOf(uri).filter((s) => s.lastImport?.ok).length === 2, 'two editors');
+
+    const document = await vscode.workspace.openTextDocument(uri);
+    await replaceAll(document, document.getText().replace('Do the work', 'Do other work'));
+    await poll(
+      () => statesOf(uri).every((s) => s.lastImport?.version === document.version),
+      'both editors re-rendered',
+    );
+  });
+
+  it('saves promptly: the webview answers the pre-save flush', async () => {
+    const uri = scratchCopy('no-platform.bpmn');
+    await openDiagram(uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+    await replaceAll(document, document.getText().replace('Do the work', 'Do other work'));
+    await poll(() => stateOf(uri)?.lastImport?.version === document.version, 're-render');
+
+    const started = Date.now();
+    assert.ok(await document.save());
+    assert.ok(Date.now() - started < 1500, 'answered by the webview, not by the flush timeout');
+    assert.equal(document.isDirty, false);
+    assert.ok(readFileSync(uri.fsPath, 'utf8').includes('Do other work'));
+  });
+
+  it('re-renders after revert', async () => {
+    const uri = scratchCopy('no-platform.bpmn');
+    await openDiagram(uri);
+    const document = await vscode.workspace.openTextDocument(uri);
+    await replaceAll(document, document.getText().replace('Do the work', 'Do other work'));
+    await poll(() => stateOf(uri)?.lastImport?.version === document.version, 'edited');
+
+    await vscode.commands.executeCommand('workbench.action.files.revert');
+    await poll(() => !document.isDirty, 'reverted');
+    await poll(
+      () => stateOf(uri)?.lastImport?.version === document.version,
+      're-render after revert',
+    );
+    assert.ok(document.getText().includes('Do the work'));
+  });
 });
+
+const statesOf = (uri: vscode.Uri): BpmnEditorState[] =>
+  testing.bpmnEditorStates().filter((s) => s.uri === uri.toString());
+
+const documentOf = (uri: vscode.Uri) =>
+  vscode.workspace.textDocuments.find((d) => d.uri.toString() === uri.toString());
+
+async function replaceAll(document: vscode.TextDocument, text: string): Promise<void> {
+  const edit = new vscode.WorkspaceEdit();
+  edit.replace(document.uri, new vscode.Range(0, 0, document.lineCount, 0), text);
+  assert.ok(await vscode.workspace.applyEdit(edit));
+}
