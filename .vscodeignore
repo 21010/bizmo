@@ -1,0 +1,18 @@
+# Allowlist: exclude everything, then re-include what ships. Verified by scripts/check-vsix.mjs.
+# vsce lets any negated pattern override exclusions, so re-includes must be precise (no source maps).
+**
+!package.json
+!README.md
+!CHANGELOG.md
+!LICENSE
+!THIRD_PARTY_NOTICES.md
+!media/*.png
+!media/*.svg
+!dist/extension/*.js
+!dist/extension/*.LEGAL.txt
+!dist/webview/*.js
+!dist/webview/*.css
+!dist/webview/*.LEGAL.txt
+!dist/webview/*.ttf
+!dist/webview/*.woff
+!dist/webview/*.woff2

@@ -1,0 +1,7 @@
+dist/
+out/
+coverage/
+.vscode-test/
+package-lock.json
+.agents/
+test/fixtures/

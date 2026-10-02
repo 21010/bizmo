@@ -1,0 +1,81 @@
+{
+  "name": "business-process-modeler",
+  "displayName": "Business Process Modeler",
+  "description": "Secure business process modeling in VS Code: BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC, Event Storming, and UML.",
+  "version": "0.0.1",
+  "publisher": "grzegorz-ziolo",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.134.0"
+  },
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "keywords": [
+    "bpmn",
+    "camunda",
+    "dmn",
+    "forms",
+    "value stream mapping",
+    "lean",
+    "sipoc",
+    "event storming",
+    "uml",
+    "process modeling"
+  ],
+  "main": "./dist/extension/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Viewing and editing diagrams works in restricted mode. Loading element templates and other workspace configuration requires trust."
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "processModeler.showLog",
+        "title": "Show Log",
+        "category": "Process Modeler"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:prod": "node scripts/build.mjs --production",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc -p tsconfig.extension.json && tsc -p tsconfig.webview.json && tsc -p tsconfig.test.json",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "npm run test:unit",
+    "test:unit": "vitest run",
+    "pretest:integration": "npm run build && node scripts/build-tests.mjs",
+    "test:integration": "vscode-test",
+    "package": "vsce package --no-dependencies --allow-missing-repository",
+    "check:vsix": "node scripts/check-vsix.mjs",
+    "vscode:prepublish": "npm run build:prod"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.134.0",
+    "@vscode/test-cli": "0.0.15",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "esbuild": "0.28.2",
+    "eslint": "10.11.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.3"
+  },
+  "overrides": {
+    "diff": "9.0.0",
+    "serialize-javascript": "7.1.2"
+  }
+}

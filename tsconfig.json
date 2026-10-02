@@ -1,0 +1,6 @@
+{
+  // Editor and ESLint view of the whole repository. The per-target configs
+  // (tsconfig.extension.json, tsconfig.webview.json, tsconfig.test.json) are
+  // what `npm run typecheck` enforces.
+  "extends": "./tsconfig.test.json"
+}
