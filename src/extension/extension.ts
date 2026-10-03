@@ -5,6 +5,7 @@ import { reopenWith, TEXT_EDITOR } from './core/reopen';
 import {
   BPMN_VIEW_TYPE,
   BpmnEditorProvider,
+  SHOW_PROBLEM_COMMAND,
   type BpmnEditorState,
 } from './notations/bpmn/bpmnEditorProvider';
 import { ElementTemplateService } from './notations/bpmn/elementTemplateService';
@@ -24,6 +25,7 @@ export function activate(context: vscode.ExtensionContext): { testing: TestingAp
   context.subscriptions.push(
     log,
     templates,
+    bpmn,
     vscode.window.registerCustomEditorProvider(BPMN_VIEW_TYPE, bpmn, {
       webviewOptions: { retainContextWhenHidden: false },
       supportsMultipleEditorsPerDocument: true,
@@ -39,6 +41,9 @@ export function activate(context: vscode.ExtensionContext): { testing: TestingAp
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (target) await reopenWith(target, BPMN_VIEW_TYPE);
     }),
+    vscode.commands.registerCommand(SHOW_PROBLEM_COMMAND, (uri: unknown, elementId: unknown) =>
+      bpmn.showProblem(uri, elementId),
+    ),
     vscode.commands.registerCommand('bizmo.bpmn.newDiagramC8', (target?: vscode.Uri) =>
       createDiagram('c8', target),
     ),

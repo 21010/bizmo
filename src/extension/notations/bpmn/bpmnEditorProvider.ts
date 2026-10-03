@@ -2,19 +2,38 @@ import * as vscode from 'vscode';
 import { detectExecutionPlatform } from '../../../shared/bpmn/platform';
 import {
   isWebviewToHostMessage,
+  LIMITS,
   type EditOutcome,
   type HostToWebviewMessage,
   type ImportResult,
+  type LintProblem,
+  type LintSeverity,
   type LoadRejection,
 } from '../../../shared/protocol';
 import { DocumentSync, type SyncTarget } from '../../core/documentSync';
 import { checkXmlDocument } from '../../core/guards';
 import type { ElementTemplateService } from './elementTemplateService';
+import { locateElementIds } from './lintLocations';
 import { reopenWith, TEXT_EDITOR } from '../../core/reopen';
 import { renderWebviewHtml } from '../../core/webviewHtml';
 import { createNonce } from '../../security/nonce';
 
 export const BPMN_VIEW_TYPE = 'bizmo.bpmn';
+/** Selects a lint problem's element in the diagram; the link on each Bizmo diagnostic. */
+export const SHOW_PROBLEM_COMMAND = 'bizmo.bpmn.showProblem';
+const LINTING_SETTING = 'bizmo.bpmn.linting.enabled';
+
+const SEVERITY: Record<LintSeverity, vscode.DiagnosticSeverity> = {
+  error: vscode.DiagnosticSeverity.Error,
+  warning: vscode.DiagnosticSeverity.Warning,
+  info: vscode.DiagnosticSeverity.Information,
+};
+
+/** An open diagram editor, as far as other editors and commands need it. */
+interface EditorHandle {
+  panel: vscode.WebviewPanel;
+  reveal(elementId: string): void;
+}
 
 /** How long a save waits for the webview to hand over pending changes. */
 const FLUSH_TIMEOUT_MS = 2000;
@@ -28,6 +47,10 @@ export interface BpmnEditorState {
   /** Number of element templates last sent to the webview, per platform. */
   templatesSent?: { c7: number; c8: number };
   templateErrors: number;
+  /** Lint problems last reported by this editor's webview. */
+  lintProblems?: LintProblem[];
+  /** Element last revealed from a lint problem's link. */
+  lastReveal?: string;
   cspViolations: number;
   droppedMessages: number;
 }
@@ -36,14 +59,86 @@ export interface BpmnEditorState {
  * BPMN modeler as a text-backed custom editor (ADR 0007). The TextDocument is the source of
  * truth: the webview proposes full-document edits, VS Code owns undo/redo, save, and backup.
  */
-export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
+export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vscode.Disposable {
   readonly states = new Set<BpmnEditorState>();
+  private readonly diagnostics = vscode.languages.createDiagnosticCollection('bizmo');
+  /** Open diagram editors per document URI (several editors per document are possible). */
+  private readonly editors = new Map<string, Set<EditorHandle>>();
+  /** Elements to reveal once a diagram opened by `showProblem` has rendered. */
+  private readonly pendingReveals = new Map<string, string>();
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly log: vscode.LogOutputChannel,
     private readonly templates: ElementTemplateService,
   ) {}
+
+  dispose(): void {
+    this.diagnostics.dispose();
+  }
+
+  /**
+   * Shows a lint problem's element in a diagram editor of the document, opening one if needed.
+   * Reachable through command links, so it only acts on documents that have Bizmo diagnostics.
+   */
+  async showProblem(uriText: unknown, elementId: unknown): Promise<void> {
+    if (typeof uriText !== 'string' || typeof elementId !== 'string') return;
+    if (elementId.length === 0 || elementId.length > LIMITS.shortText) return;
+    let uri: vscode.Uri;
+    try {
+      uri = vscode.Uri.parse(uriText, true);
+    } catch {
+      return;
+    }
+    if (!this.diagnostics.has(uri)) return;
+    const editor = this.editors.get(uri.toString())?.values().next().value;
+    if (editor) {
+      editor.panel.reveal();
+      editor.reveal(elementId);
+      return;
+    }
+    this.pendingReveals.set(uri.toString(), elementId);
+    await vscode.commands.executeCommand('vscode.openWith', uri, BPMN_VIEW_TYPE);
+  }
+
+  private lintingEnabled(): boolean {
+    return vscode.workspace.getConfiguration().get<boolean>(LINTING_SETTING, true);
+  }
+
+  private publishDiagnostics(document: vscode.TextDocument, problems: LintProblem[]): void {
+    if (problems.length === 0 || !this.lintingEnabled()) {
+      this.diagnostics.delete(document.uri);
+      return;
+    }
+    const spans = locateElementIds(
+      document.getText(),
+      problems.map((p) => p.elementId),
+    );
+    this.diagnostics.set(
+      document.uri,
+      problems.map((problem) => {
+        const span = spans.get(problem.elementId) ?? { start: 0, end: 0 };
+        const range = new vscode.Range(
+          document.positionAt(span.start),
+          document.positionAt(span.end),
+        );
+        const diagnostic = new vscode.Diagnostic(
+          range,
+          `${problem.message} (${problem.elementId})`,
+          SEVERITY[problem.severity],
+        );
+        diagnostic.source = 'Bizmo';
+        const args = encodeURIComponent(
+          JSON.stringify([document.uri.toString(), problem.elementId]),
+        );
+        diagnostic.code = {
+          value: problem.rule,
+          target: vscode.Uri.parse(`command:${SHOW_PROBLEM_COMMAND}?${args}`),
+        };
+        return diagnostic;
+      }),
+    );
+  }
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const webviewRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
@@ -76,6 +171,17 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
 
     const sync = new DocumentSync(textDocumentTarget(document));
     const post = (message: HostToWebviewMessage) => void panel.webview.postMessage(message);
+    const key = document.uri.toString();
+    const handle: EditorHandle = {
+      panel,
+      reveal: (elementId) => {
+        state.lastReveal = elementId;
+        post({ type: 'reveal', elementId });
+      },
+    };
+    const handles = this.editors.get(key) ?? new Set<EditorHandle>();
+    handles.add(handle);
+    this.editors.set(key, handles);
     let ready = false;
     /** Edits are applied one at a time, in arrival order. */
     let editQueue = Promise.resolve();
@@ -86,8 +192,16 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
       if (!ready) return;
       const message = this.documentMessage(document, kind);
       state.rejected = message.type === 'loadRejected' ? message.reason : undefined;
-      if (message.type === 'loadRejected') this.log.warn(`${name}: not loaded (${message.reason})`);
+      if (message.type === 'loadRejected') {
+        this.log.warn(`${name}: not loaded (${message.reason})`);
+        this.diagnostics.delete(document.uri);
+      }
       post(message);
+    };
+
+    const sendSettings = () => {
+      if (!ready) return;
+      post({ type: 'settings', linting: this.lintingEnabled() });
     };
 
     /** Element templates for both platforms; the webview applies the ones for the diagram. */
@@ -144,12 +258,17 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
         switch (message.type) {
           case 'ready':
             ready = true;
+            sendSettings();
             sendDocument('init');
             sendTemplates();
             break;
           case 'templateErrors':
             state.templateErrors += message.messages.length;
             for (const error of message.messages) this.log.warn(`Element template: ${error}`);
+            break;
+          case 'lint':
+            state.lintProblems = message.problems;
+            this.publishDiagnostics(document, message.problems);
             break;
           case 'edit':
             editQueue = editQueue
@@ -168,8 +287,14 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
                 `${name}: rendered ${message.elementCount} elements (v${message.version})`,
               );
               for (const warning of message.warnings) this.log.warn(`${name}: ${warning}`);
+              const pending = this.pendingReveals.get(key);
+              if (pending !== undefined) {
+                this.pendingReveals.delete(key);
+                handle.reveal(pending);
+              }
             } else {
               this.log.error(`${name}: import failed: ${message.error}`);
+              this.diagnostics.delete(document.uri);
             }
             break;
           case 'log':
@@ -206,6 +331,11 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
         if (event.document === document) event.waitUntil(flush());
       }),
       this.templates.onDidChange(sendTemplates),
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (!event.affectsConfiguration(LINTING_SETTING)) return;
+        if (!this.lintingEnabled()) this.diagnostics.delete(document.uri);
+        sendSettings();
+      }),
     ];
     void this.templates.noticeRestrictedMode();
 
@@ -213,6 +343,12 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
       for (const subscription of subscriptions) subscription.dispose();
       for (const done of pendingFlushes.values()) done();
       this.states.delete(state);
+      handles.delete(handle);
+      if (handles.size === 0) {
+        // Problems are only kept up to date while a diagram editor is open.
+        this.editors.delete(key);
+        this.diagnostics.delete(document.uri);
+      }
     });
   }
 

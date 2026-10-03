@@ -6,6 +6,13 @@ import {
   LIMITS,
 } from '../../../src/shared/protocol';
 
+const problem = {
+  elementId: 'Task_1',
+  message: 'A <Service Task> must have a <Task definition type>',
+  severity: 'error',
+  rule: 'camunda-compat/implementation',
+};
+
 describe('isWebviewToHostMessage', () => {
   it.each([
     { type: 'ready' },
@@ -25,6 +32,8 @@ describe('isWebviewToHostMessage', () => {
     { type: 'edit', content: '<x/>', baseVersion: 2 },
     { type: 'edit', content: '<x/>', baseVersion: 2, requestId: 5 },
     { type: 'flushed', requestId: 5 },
+    { type: 'lint', problems: [] },
+    { type: 'lint', problems: [problem] },
   ])('accepts %j', (message) => {
     expect(isWebviewToHostMessage(message)).toBe(true);
   });
@@ -83,6 +92,22 @@ describe('isWebviewToHostMessage', () => {
       'an oversized directive',
       { type: 'cspViolation', directive: 'x'.repeat(LIMITS.shortText + 1), blockedURI: '' },
     ],
+    ['lint without problems', { type: 'lint' }],
+    ['an unknown severity', { type: 'lint', problems: [{ ...problem, severity: 'fatal' }] }],
+    ['a problem with an extra key', { type: 'lint', problems: [{ ...problem, html: '<b>' }] }],
+    ['a problem without a rule', { type: 'lint', problems: [{ ...problem, rule: undefined }] }],
+    [
+      'an oversized element id',
+      { type: 'lint', problems: [{ ...problem, elementId: 'x'.repeat(LIMITS.shortText + 1) }] },
+    ],
+    [
+      'an oversized lint message',
+      { type: 'lint', problems: [{ ...problem, message: 'x'.repeat(LIMITS.text + 1) }] },
+    ],
+    [
+      'too many problems',
+      { type: 'lint', problems: Array.from({ length: LIMITS.lintProblems + 1 }, () => problem) },
+    ],
   ])('rejects %s', (_label, message) => {
     expect(isWebviewToHostMessage(message)).toBe(false);
   });
@@ -99,6 +124,8 @@ describe('isHostToWebviewMessage', () => {
     { type: 'init', content: '<xml/>', version: 1, platform: 'c8' },
     { type: 'update', content: '<xml/>', version: 2, platform: 'c7' },
     { type: 'loadRejected', version: 1, reason: 'doctype', message: 'blocked' },
+    { type: 'settings', linting: false },
+    { type: 'reveal', elementId: 'Task_1' },
   ])('accepts %j', (message) => {
     expect(isHostToWebviewMessage(message)).toBe(true);
   });
@@ -112,6 +139,10 @@ describe('isHostToWebviewMessage', () => {
     ],
     ['an extra key', { type: 'update', content: '', version: 1, platform: 'c8', script: 'x' }],
     ['a webview message', { type: 'ready' }],
+    ['a non-boolean setting', { type: 'settings', linting: 'yes' }],
+    ['an unknown setting', { type: 'settings', linting: true, telemetry: true }],
+    ['a non-string element id', { type: 'reveal', elementId: 3 }],
+    ['an oversized element id', { type: 'reveal', elementId: 'x'.repeat(LIMITS.shortText + 1) }],
   ])('rejects %s', (_label, message) => {
     expect(isHostToWebviewMessage(message)).toBe(false);
   });
