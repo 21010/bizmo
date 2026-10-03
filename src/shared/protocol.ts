@@ -22,7 +22,22 @@ export type HostToWebviewMessage =
    * Element templates from the workspace, per platform (ADR 0010, D4). Empty in Restricted Mode.
    * Template content is workspace data: the webview validates it with the official validator.
    */
-  | { type: 'templates'; c7: object[]; c8: object[] };
+  | { type: 'templates'; c7: object[]; c8: object[] }
+  /** User settings the webview acts on. Sent after `ready` and whenever they change. */
+  | { type: 'settings'; linting: boolean }
+  /** Selects an element and shows its lint problem, if any (from a diagnostic's link). */
+  | { type: 'reveal'; elementId: string };
+
+/** Severity of a lint problem, as shown in VS Code's Problems view. */
+export type LintSeverity = 'error' | 'warning' | 'info';
+
+/** One lint finding (M6): the element it is about, a readable message, and the rule's name. */
+export interface LintProblem {
+  elementId: string;
+  message: string;
+  severity: LintSeverity;
+  rule: string;
+}
 
 /** What the host did with an `edit` (ADR 0007). */
 export type EditOutcome = 'applied' | 'unchanged' | 'stale' | 'failed';
@@ -51,7 +66,9 @@ export type WebviewToHostMessage =
   /** Answer to `flush` when nothing was pending. */
   | { type: 'flushed'; requestId: number }
   /** Element templates rejected by the validator (schema errors), for the host log. */
-  | { type: 'templateErrors'; messages: string[] };
+  | { type: 'templateErrors'; messages: string[] }
+  /** All current lint problems of the diagram (replaces the previous ones); empty when off. */
+  | { type: 'lint'; problems: LintProblem[] };
 
 export const LIMITS = {
   /** Upper bound for document content in a message; the host's file size limit is lower. */
@@ -61,6 +78,8 @@ export const LIMITS = {
   shortText: 200,
   /** Same as the host's template count limit (templateFiles.ts). */
   templates: 2000,
+  /** Lint problems per message; Camunda Desktop Modeler shows far fewer in practice. */
+  lintProblems: 1000,
 } as const;
 
 type Fields = Record<string, unknown>;
@@ -104,6 +123,15 @@ export function isWebviewToHostMessage(value: unknown): value is WebviewToHostMe
         Array.isArray(messages) &&
         messages.length <= LIMITS.warnings &&
         messages.every((message) => isString(message, LIMITS.text))
+      );
+    }
+    case 'lint': {
+      const problems = value['problems'];
+      return (
+        hasOnlyKeys(value, ['type', 'problems']) &&
+        Array.isArray(problems) &&
+        problems.length <= LIMITS.lintProblems &&
+        problems.every(isLintProblem)
       );
     }
     case 'importResult':
@@ -175,9 +203,28 @@ export function isHostToWebviewMessage(value: unknown): value is HostToWebviewMe
         isTemplateList(value['c7']) &&
         isTemplateList(value['c8'])
       );
+    case 'settings':
+      return hasOnlyKeys(value, ['type', 'linting']) && typeof value['linting'] === 'boolean';
+    case 'reveal':
+      return (
+        hasOnlyKeys(value, ['type', 'elementId']) && isString(value['elementId'], LIMITS.shortText)
+      );
     default:
       return false;
   }
+}
+
+function isLintProblem(value: unknown): value is LintProblem {
+  return (
+    isObject(value) &&
+    hasOnlyKeys(value, ['elementId', 'message', 'severity', 'rule']) &&
+    isString(value['elementId'], LIMITS.shortText) &&
+    isString(value['message'], LIMITS.text) &&
+    (value['severity'] === 'error' ||
+      value['severity'] === 'warning' ||
+      value['severity'] === 'info') &&
+    isString(value['rule'], LIMITS.shortText)
+  );
 }
 
 const isTemplateList = (value: unknown): value is object[] =>

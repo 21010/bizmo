@@ -84,6 +84,11 @@
         "title": "New BPMN Diagram (Camunda 7)",
         "category": "Bizmo",
         "shortTitle": "BPMN Diagram (Camunda 7)"
+      },
+      {
+        "command": "bizmo.bpmn.showProblem",
+        "title": "Show Problem in Diagram",
+        "category": "Bizmo"
       }
     ],
     "menus": {
@@ -119,6 +124,10 @@
         {
           "command": "bizmo.bpmn.openDiagram",
           "when": "resourceExtname == .bpmn && activeEditor == workbench.editors.files.textFileEditor"
+        },
+        {
+          "command": "bizmo.bpmn.showProblem",
+          "when": "false"
         }
       ],
       "file/newFile": [
@@ -141,6 +150,11 @@
           "minimum": 1,
           "maximum": 200,
           "markdownDescription": "Largest model file (in MB) that Bizmo renders. Larger files can still be opened as text."
+        },
+        "bizmo.bpmn.linting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Check BPMN diagrams with the Camunda linter (as in Camunda Modeler) and show problems on the diagram and in the **Problems** view. Uses the diagram's execution platform and version."
         }
       }
     }
@@ -191,6 +205,7 @@
     "serialize-javascript": "7.1.2"
   },
   "dependencies": {
+    "@camunda/linting": "4.1.0",
     "bpmn-js": "18.31.0",
     "bpmn-js-properties-panel": "5.65.1",
     "camunda-bpmn-js": "5.36.0",

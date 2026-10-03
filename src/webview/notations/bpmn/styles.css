@@ -9,6 +9,7 @@
 @import 'camunda-bpmn-js/dist/assets/element-template-chooser.css';
 @import 'camunda-bpmn-js/dist/assets/popup-menu.css';
 @import 'camunda-bpmn-js/dist/assets/properties-panel.css';
+@import '@camunda/linting/assets/linting.css';
 @import '../../core/base.css';
 @import '../../core/layout.css';
 @import '../../core/properties-panel-theme.css';

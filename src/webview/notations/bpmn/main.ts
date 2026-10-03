@@ -4,6 +4,7 @@ import '../../core/cspReport';
 import './styles.css';
 import C7Modeler from 'camunda-bpmn-js/lib/camunda-platform/Modeler';
 import C8Modeler from 'camunda-bpmn-js/lib/camunda-cloud/Modeler';
+import lintingModule from '@camunda/linting/modeler';
 import type Canvas from 'diagram-js/lib/core/Canvas';
 import type ElementRegistry from 'diagram-js/lib/core/ElementRegistry';
 import type Selection from 'diagram-js/lib/features/selection/Selection';
@@ -19,6 +20,7 @@ import { EditSync } from '../../core/editSync';
 import { hideOverlay, showOverlay } from '../../core/overlay';
 import { createSplitPane } from '../../core/splitPane';
 import { routeUndoRedoToHost } from '../../core/undoRouting';
+import { DiagramLinter } from './lint';
 
 type Modeler = C8Modeler | C7Modeler;
 interface Viewbox {
@@ -57,6 +59,15 @@ function applyTemplates(instance: Modeler, target: ExecutionPlatform): void {
 const describeTemplateProblem = (problem: unknown): string =>
   bounded(problem instanceof Error ? problem.message : String(problem));
 
+const linter = new DiagramLinter(
+  (problems) => {
+    post({ type: 'lint', problems });
+  },
+  (message) => {
+    post({ type: 'log', level: 'warn', message: bounded(message) });
+  },
+);
+
 const editSync = new EditSync(async () => {
   if (!modeler) throw new Error('no diagram');
   const { xml } = await modeler.saveXML({ format: true });
@@ -79,6 +90,7 @@ function createModeler(target: ExecutionPlatform): Modeler {
     propertiesPanel: { parent: panelHost },
     // align-to-origin would move elements during saveXML (ADR 0008).
     disableAdjustOrigin: true,
+    additionalModules: [lintingModule],
   };
   const instance = target === 'c7' ? new C7Modeler(options) : new C8Modeler(options);
   modeler = instance;
@@ -98,7 +110,9 @@ function createModeler(target: ExecutionPlatform): Modeler {
     post({ type: 'log', level: 'warn', message: bounded(`Clipboard: ${message}`) });
   });
   instance.on('commandStack.changed', ({ trigger }: { trigger?: string }) => {
-    if (!importing && trigger !== 'clear') editSync.changed();
+    if (importing || trigger === 'clear') return;
+    editSync.changed();
+    linter.schedule(instance, target);
   });
   instance.on('canvas.viewbox.changed', () => {
     clearTimeout(persistTimer);
@@ -229,6 +243,7 @@ async function render(
     instance.get<Selection>('selection', true).select(stillThere);
     editSync.rendered(message.version);
     hideOverlay();
+    linter.schedule(instance, message.platform);
     post({
       type: 'importResult',
       version: message.version,
@@ -238,7 +253,7 @@ async function render(
     });
   } catch (error) {
     // A failed import can leave the instance unable to import later diagrams (ADR 0008).
-    createModeler(message.platform);
+    linter.clear(createModeler(message.platform));
     editSync.rendered(message.version);
     const detail = bounded(error instanceof Error ? error.message : String(error));
     showOverlay('This diagram cannot be displayed', detail, [
@@ -282,6 +297,12 @@ onHostMessage(async (message) => {
       break;
     case 'flush':
       editSync.flush(message.requestId);
+      break;
+    case 'settings':
+      linter.setEnabled(message.linting, modeler, platform);
+      break;
+    case 'reveal':
+      if (modeler) linter.reveal(modeler, message.elementId);
       break;
     case 'templates':
       templates = { c7: message.c7, c8: message.c8 };
