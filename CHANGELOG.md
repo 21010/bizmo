@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Element templates (M5): Camunda 7 and 8 templates from `.camunda/element-templates/` in the workspace, applied from the properties panel or the change-type menu; reloaded when the files change; invalid templates reported in the Bizmo log while valid ones still load. Not loaded in Restricted Mode (with a one-time notice). Size limits per file and in total; remote template icons are blocked by the CSP.
+- The initial view fits the diagram clear of the palette and minimap button; the panel toggle sits on the divider so nothing covers the canvas or the bpmn.io watermark.
 - Camunda properties panel (M4): Camunda 8 or Camunda 7 properties of the selected element, edited straight into the document; follows the VS Code color theme; resizable (mouse or keyboard) and collapsible, with the layout remembered per editor.
 - Undo/redo in panel fields and FEEL editors now act on the document like on the diagram (one step of VS Code's history); a change made just before Ctrl+Z is the one that gets undone.
 - BPMN editing (M3): Camunda 7/8 modeler with changes synced to the document; undo/redo, save, revert, and auto-save through VS Code; copy/paste via the system clipboard; side-by-side text and diagram editors; several diagram editors on one file.

@@ -70,6 +70,19 @@ describe('element templates', () => {
     await expect.poll(() => panelTextFor(w, 'Task_Notify')).toContain('Send notification');
   });
 
+  it('applies a template chosen in the panel, as a document edit', async () => {
+    const w = await open('c8-order.bpmn', 'c8', { c8: [template('notify.c8.json')] });
+    await w.page.locator('[data-element-id="Task_Check"]').first().click({ force: true });
+    await w.page.locator('#bizmo-panel .bio-properties-panel-select-template-button').click();
+    await w.page.getByText('Send notification', { exact: true }).first().click();
+
+    const editOf = async () => (await w.posted()).filter((m) => m.type === 'edit').at(-1);
+    await expect
+      .poll(async () => (await editOf())?.content ?? '', { timeout: 5000 })
+      .toContain('zeebe:modelerTemplate="io.bizmo.test.notify"');
+    expect((await editOf())?.content).toContain('<zeebe:taskDefinition type="notify"');
+  });
+
   it('does not know the template when none are loaded (e.g. Restricted Mode)', async () => {
     const w = await open('c8-templated.bpmn', 'c8', {});
     expect(await panelTextFor(w, 'Task_Notify')).not.toContain('Send notification');

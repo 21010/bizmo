@@ -1,130 +1,40 @@
 // End-to-end: real VS Code (Electron) driven by Playwright with trusted mouse and keyboard input.
 // Covers what neither browser nor extension-host tests can: VS Code's keyboard routing from the
 // webview, document undo/redo, dirty state, and save.
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { downloadAndUnzipVSCode } from '@vscode/test-electron';
-import { _electron as electron, type ElectronApplication, type Frame, type Page } from 'playwright';
+import { join } from 'node:path';
+import type { Frame, Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import {
+  clickElement as clickInFrame,
+  dirtyTabs as dirtyTabsIn,
+  element,
+  keys,
+  launchVsCode,
+  mod,
+  openFromExplorer as openIn,
+  type VsCode,
+} from './vscode';
 
-const REPO = resolve('.');
-let app: ElectronApplication;
+let vscode: VsCode;
 let win: Page;
 let workspace: string;
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const dirtyTabs = () => win.locator('.tabs-container .tab.dirty').count();
-
-/** VS Code's default shortcuts per platform. */
-const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
-const keys = {
-  close: `${mod}+W`,
-  undo: `${mod}+Z`,
-  redo: process.platform === 'win32' ? 'Control+Y' : `${mod}+Shift+Z`,
-  save: `${mod}+S`,
-  copy: `${mod}+C`,
-  paste: `${mod}+V`,
-};
+const dirtyTabs = () => dirtyTabsIn(win);
+const openFromExplorer = (name: string) => openIn(win, name);
+const clickElement = (frame: Frame, id: string) => clickInFrame(win, frame, id);
 
 beforeAll(async () => {
-  const executablePath = await downloadAndUnzipVSCode(
-    process.env['VSCODE_TEST_VERSION'] ?? 'stable',
-  );
   workspace = mkdtempSync(join(tmpdir(), 'bizmo-e2e-ws-'));
   copyFileSync('test/fixtures/bpmn/c8-order.bpmn', join(workspace, 'order.bpmn'));
-  const userData = mkdtempSync(join(tmpdir(), 'bizmo-e2e-user-'));
-  mkdirSync(join(userData, 'User'));
-  writeFileSync(
-    join(userData, 'User', 'settings.json'),
-    JSON.stringify({
-      'chat.disableAIFeatures': true,
-      'workbench.startupEditor': 'none',
-      'files.autoSave': 'off',
-      // A real default layout: no empty secondary side bar taking a third of the window.
-      'workbench.secondarySideBar.defaultVisibility': 'hidden',
-    }),
-  );
-  app = await electron.launch({
-    executablePath,
-    args: [
-      `--extensionDevelopmentPath=${REPO}`,
-      workspace,
-      '--disable-extensions',
-      '--disable-workspace-trust',
-      '--skip-welcome',
-      '--skip-release-notes',
-      `--user-data-dir=${userData}`,
-    ],
-  });
-  win = await app.firstWindow();
-  // Same size as CI runners' default screen, so local runs see the layout CI sees.
-  // (Typed locally: the part of Electron's main-process API used here.)
-  interface ElectronMain {
-    BrowserWindow: { getAllWindows(): { setSize(width: number, height: number): void }[] };
-  }
-  await app.evaluate(({ BrowserWindow }: ElectronMain) => {
-    BrowserWindow.getAllWindows()[0]?.setSize(1024, 768);
-  });
+  vscode = await launchVsCode({ workspace });
+  win = vscode.win;
 });
 
 afterAll(async () => {
-  await app.close();
+  await vscode.app.close();
 });
-
-/** Opens a file from the Explorer and returns the webview frame showing the diagram. */
-async function openFromExplorer(name: string): Promise<Frame> {
-  const item = win.getByRole('treeitem', { name });
-  await item.waitFor();
-  for (let attempt = 0; attempt < 20; attempt++) {
-    await item.click();
-    for (let i = 0; i < 20; i++) {
-      for (const frame of win.frames()) {
-        if (
-          await frame
-            .locator('.djs-container')
-            .count()
-            .catch(() => 0)
-        )
-          return frame;
-      }
-      await sleep(250);
-    }
-    // Clicked before VS Code registered Bizmo's editor (start-up): close the text editor and retry.
-    await win.keyboard.press(keys.close);
-  }
-  throw new Error('diagram editor did not open');
-}
-
-const element = (frame: Frame, id: string) => frame.locator(`[data-element-id="${id}"]`).first();
-
-/**
- * Clicks an element where it is actually visible: the palette, the minimap toggle, or other
- * overlays can cover parts of a small diagram, as they would for a user.
- */
-async function clickElement(frame: Frame, id: string): Promise<void> {
-  const fraction = await element(frame, id).evaluate((gfx) => {
-    const box = gfx.getBoundingClientRect();
-    for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85]) {
-      for (const fx of [0.5, 0.3, 0.7, 0.15, 0.85]) {
-        const hit = document.elementFromPoint(box.left + box.width * fx, box.top + box.height * fy);
-        if (hit && gfx.contains(hit)) return { fx, fy };
-      }
-    }
-    return undefined;
-  });
-  if (!fraction) throw new Error(`element ${id} is completely covered`);
-  // Raw mouse coordinates: locator.click() would scroll the element into view, which scrolls
-  // the overflow-hidden diagram container and shifts the whole canvas.
-  const box = await element(frame, id).boundingBox();
-  if (!box) throw new Error(`element ${id} has no box`);
-  await win.mouse.click(box.x + box.width * fraction.fx, box.y + box.height * fraction.fy);
-  await expect
-    .poll(() => frame.locator(`.djs-element.selected[data-element-id="${id}"]`).count(), {
-      timeout: 2000,
-    })
-    .toBe(1);
-}
 
 const onDisk = () => readFileSync(join(workspace, 'order.bpmn'), 'utf8');
 
