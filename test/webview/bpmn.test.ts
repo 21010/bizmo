@@ -52,9 +52,9 @@ describe('BPMN viewer webview', () => {
     });
     expect(await w.waitForImport(1)).toMatchObject({ ok: true });
     expect(await w.page.evaluate(() => window.__pwned)).toBeUndefined();
-    expect(await w.page.locator('img, iframe, a[href^="command:"], svg svg[onload]').count()).toBe(
-      0,
-    );
+    // (CodeMirror renders src-less <img class="cm-widgetBuffer"> placeholders; those are inert.)
+    const active = 'img[src], iframe, a[href^="command:"], [onload], [onerror], [onclick]';
+    expect(await w.page.locator(active).count()).toBe(0);
     expect(await w.page.locator('.djs-container').textContent()).toContain('<img src=x');
   });
 
@@ -115,6 +115,29 @@ describe('BPMN viewer webview', () => {
     expect(await overlay.locator('pre').textContent()).toBe('DOCTYPE blocked');
     expect((await w.posted()).some((m) => m.type === 'importResult')).toBe(false);
   });
+
+  it.each([0, 200, 400])(
+    'imports in a %ipx-wide editor and shows the diagram once there is room',
+    async (width) => {
+      const w = await open();
+      await w.page.setViewportSize({ width: Math.max(width, 1), height: 600 });
+      await w.send({ type: 'init', content: fixture('c8-order.bpmn'), version: 1, platform: 'c8' });
+      expect(await w.waitForImport(1)).toMatchObject({ ok: true });
+
+      await w.page.setViewportSize({ width: 1200, height: 800 });
+      await expect
+        .poll(() =>
+          w.page
+            .locator('[data-element-id="Task_Check"]')
+            .first()
+            .evaluate((e) => {
+              const box = e.getBoundingClientRect();
+              return box.width > 0 && box.left >= 0 && box.right <= window.innerWidth;
+            }),
+        )
+        .toBe(true);
+    },
+  );
 
   it('keeps the viewport on update and restores it from saved state', async () => {
     const w = await open();

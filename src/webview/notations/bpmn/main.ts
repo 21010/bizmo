@@ -1,11 +1,11 @@
-// BPMN webview: Camunda 7 and Camunda 8 modeler (M3), synced with the TextDocument (ADR 0007).
+// BPMN webview: Camunda 7 and Camunda 8 modeler with properties panel (M4), synced with the
+// TextDocument (ADR 0007, 0011); undo/redo through VS Code (ADR 0012).
 import '../../core/cspReport';
 import './styles.css';
 import C7Modeler from 'camunda-bpmn-js/lib/camunda-platform/Modeler';
 import C8Modeler from 'camunda-bpmn-js/lib/camunda-cloud/Modeler';
 import type Canvas from 'diagram-js/lib/core/Canvas';
 import type ElementRegistry from 'diagram-js/lib/core/ElementRegistry';
-import type Keyboard from 'diagram-js/lib/features/keyboard/Keyboard';
 import type Selection from 'diagram-js/lib/features/selection/Selection';
 import type { Element as DiagramElement } from 'diagram-js/lib/model/Types';
 import {
@@ -14,9 +14,11 @@ import {
   type ExecutionPlatform,
   type HostToWebviewMessage,
 } from '../../../shared/protocol';
-import { getState, onHostMessage, post, setState } from '../../core/bridge';
+import { getState, onHostMessage, post, updateState } from '../../core/bridge';
 import { EditSync } from '../../core/editSync';
 import { hideOverlay, showOverlay } from '../../core/overlay';
+import { createSplitPane } from '../../core/splitPane';
+import { routeUndoRedoToHost } from '../../core/undoRouting';
 
 type Modeler = C8Modeler | C7Modeler;
 interface Viewbox {
@@ -31,6 +33,7 @@ interface PersistedState {
 
 const app = document.getElementById('app');
 if (!app) throw new Error('missing #app');
+const { canvasHost, panelHost } = createSplitPane(app, 'Properties');
 
 let modeler: Modeler | undefined;
 let platform: ExecutionPlatform | undefined;
@@ -44,31 +47,26 @@ const editSync = new EditSync(async () => {
   return xml;
 });
 
-const isUndoRedo = (event: KeyboardEvent): boolean => {
-  if (!(event.ctrlKey || event.metaKey)) return false;
-  const key = event.key.toLowerCase();
-  return key === 'z' || key === 'y';
-};
-
-/** Creates a fresh modeler. Also the recovery path after a failed import (ADR 0008). */
+/**
+ * Creates a fresh modeler with the properties panel of the given platform. Also the recovery
+ * path after a failed import (ADR 0008). Undo/redo keys never reach it (ADR 0012).
+ */
 function createModeler(target: ExecutionPlatform): Modeler {
   modeler?.destroy();
   const container = document.createElement('div');
   container.className = 'bizmo-canvas';
-  app?.replaceChildren(container);
-  // align-to-origin would move elements during saveXML (ADR 0008).
-  const options = { container, disableAdjustOrigin: true };
+  canvasHost.replaceChildren(container);
+  panelHost.replaceChildren();
+  const options = {
+    container,
+    propertiesPanel: { parent: panelHost },
+    // align-to-origin would move elements during saveXML (ADR 0008).
+    disableAdjustOrigin: true,
+  };
   const instance = target === 'c7' ? new C7Modeler(options) : new C8Modeler(options);
   modeler = instance;
   platform = target;
 
-  // VS Code owns undo/redo (ADR 0007): the forwarded keystroke undoes the document. Handling it
-  // here as well would undo twice. Other keys: return undefined, not false (false cancels them).
-  instance
-    .get<Keyboard>('keyboard', true)
-    .addListener(10000, ({ keyEvent }: { keyEvent: KeyboardEvent }) =>
-      isUndoRedo(keyEvent) ? true : undefined,
-    );
   // Copy/paste uses the system clipboard (bpmn-js-native-copy-paste); report its failures.
   instance.on('native-copy-paste:error', ({ message }: { message: string }) => {
     post({ type: 'log', level: 'warn', message: bounded(`Clipboard: ${message}`) });
@@ -90,12 +88,92 @@ function canvasOf(instance: Modeler): Canvas {
 function persistViewbox(): void {
   if (!modeler) return;
   const { x, y, width, height } = canvasOf(modeler).viewbox();
-  setState({ viewbox: { x, y, width, height } } satisfies PersistedState);
+  const viewbox = { x, y, width, height };
+  // A hidden canvas reports a meaningless viewbox; keep the last good one.
+  if (isUsableViewbox(viewbox)) updateState({ viewbox } satisfies PersistedState);
 }
 
 function savedViewbox(): Viewbox | undefined {
   const state = getState() as PersistedState | undefined;
   return state?.viewbox;
+}
+
+const isUsableViewbox = (box: Viewbox | undefined): box is Viewbox =>
+  box !== undefined &&
+  [box.x, box.y, box.width, box.height].every(Number.isFinite) &&
+  box.width > 0 &&
+  box.height > 0;
+
+let pendingFit: ResizeObserver | undefined;
+
+const FIT_MARGIN = 16;
+
+/**
+ * Like `zoom('fit-viewport')`, but keeps the diagram clear of what the modeler draws over the
+ * canvas: the palette (left) and the minimap toggle (top). In small editors fit-viewport would put
+ * the first elements underneath them. Never zooms in beyond 100%.
+ */
+function fitClearOfOverlays(canvas: Canvas, container: Element): void {
+  const { inner } = canvas.viewbox();
+  const area = container.getBoundingClientRect();
+  const palette = container.querySelector('.djs-palette')?.getBoundingClientRect();
+  const minimap = container.querySelector('.djs-minimap')?.getBoundingClientRect();
+  const left = (palette ? Math.max(0, palette.right - area.left) : 0) + FIT_MARGIN;
+  const top = (minimap ? Math.max(0, minimap.bottom - area.top) : 0) + FIT_MARGIN;
+  const width = area.width - left - FIT_MARGIN;
+  const height = area.height - top - FIT_MARGIN;
+  if (inner.width <= 0 || inner.height <= 0 || width < 80 || height < 80) {
+    canvas.zoom('fit-viewport');
+    return;
+  }
+  const scale = Math.min(1, width / inner.width, height / inner.height);
+  canvas.viewbox({
+    x: inner.x - left / scale,
+    y: inner.y - top / scale,
+    width: area.width / scale,
+    height: area.height / scale,
+  });
+}
+
+/**
+ * Restores the previous viewport or fits the diagram. Never fails the import: a zero-sized canvas
+ * (hidden or very narrow editor) makes diagram-js compute non-finite scales, so fitting waits
+ * until the canvas has a size.
+ */
+function showViewport(instance: Modeler, previous: Viewbox | undefined): void {
+  pendingFit?.disconnect();
+  pendingFit = undefined;
+  const canvas = canvasOf(instance);
+  const container = canvasHost.firstElementChild ?? canvasHost;
+  const apply = () => {
+    try {
+      if (isUsableViewbox(previous)) {
+        canvas.viewbox({
+          x: previous.x,
+          y: previous.y,
+          width: previous.width,
+          height: previous.height,
+        });
+      } else {
+        fitClearOfOverlays(canvas, container);
+      }
+    } catch (error) {
+      post({ type: 'log', level: 'warn', message: bounded(`Viewport: ${String(error)}`) });
+    }
+  };
+  const hasSize = () => container.clientWidth > 0 && container.clientHeight > 0;
+  if (hasSize()) {
+    apply();
+    return;
+  }
+  pendingFit = new ResizeObserver(() => {
+    if (!hasSize()) return;
+    pendingFit?.disconnect();
+    pendingFit = undefined;
+    instance.get<Canvas>('canvas', true).resized();
+    apply();
+  });
+  pendingFit.observe(container);
 }
 
 /** Typed as strings, but bpmn-js reports import warnings as Error objects at runtime. */
@@ -116,17 +194,7 @@ async function render(
   importing = true;
   try {
     const { warnings } = await instance.importXML(message.content);
-    const canvas = canvasOf(instance);
-    if (previous) {
-      canvas.viewbox({
-        x: previous.x,
-        y: previous.y,
-        width: previous.width,
-        height: previous.height,
-      });
-    } else {
-      canvas.zoom('fit-viewport');
-    }
+    showViewport(instance, previous);
     const registry = instance.get<ElementRegistry>('elementRegistry', true);
     const stillThere = selected.flatMap((id) => {
       const element = registry.get(id) as DiagramElement | undefined;
@@ -194,7 +262,9 @@ onHostMessage(async (message) => {
 
 // Leaving the editor (another tab, the text editor, the sidebar) hands over pending changes.
 window.addEventListener('blur', () => {
-  editSync.sendNow();
+  void editSync.sendNow();
 });
+
+routeUndoRedoToHost(() => editSync.sendNow());
 
 post({ type: 'ready' });

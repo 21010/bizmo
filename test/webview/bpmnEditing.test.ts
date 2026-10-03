@@ -83,7 +83,7 @@ describe('BPMN editing', () => {
     expect((await edits(w))[1]?.baseVersion).toBe(2);
   });
 
-  it('leaves undo and redo to VS Code (no local undo, no edit)', async () => {
+  it('routes undo and redo to VS Code (no local undo, no extra edit) — ADR 0012', async () => {
     const w = await openOrder();
     await deleteElement(w, 'Task_Ship');
     await expect.poll(async () => (await edits(w)).length).toBe(1);
@@ -92,9 +92,23 @@ describe('BPMN editing', () => {
     await w.page.keyboard.press('Control+Z');
     await w.page.keyboard.press('Control+Y');
     await w.page.keyboard.press('Control+Shift+Z');
-    await w.page.waitForTimeout(600);
+    await expect
+      .poll(async () => (await w.posted()).filter((m) => m.type === 'undo' || m.type === 'redo'))
+      .toEqual([{ type: 'undo' }, { type: 'redo' }, { type: 'redo' }]);
+    await w.page.waitForTimeout(400);
     expect(await edits(w)).toHaveLength(1);
     expect(await w.page.locator('[data-element-id="Task_Ship"]').count()).toBe(0);
+  });
+
+  it('sends a pending change before the undo, so that change is what gets undone', async () => {
+    const w = await openOrder();
+    await deleteElement(w, 'Task_Ship');
+    await w.page.keyboard.press('Control+Z'); // well within the debounce
+    await expect
+      .poll(async () =>
+        (await w.posted()).map((m) => m.type).filter((t) => t === 'edit' || t === 'undo'),
+      )
+      .toEqual(['edit', 'undo']);
   });
 
   it('still handles other shortcuts (select all)', async () => {

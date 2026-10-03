@@ -163,6 +163,20 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
           case 'openAsText':
             void reopenWith(document.uri, TEXT_EDITOR);
             break;
+          case 'undo':
+          case 'redo': {
+            // Queued behind edits received earlier: the change made just before is undone.
+            // VS Code's undo/redo act on the active editor, which is this one (it has focus).
+            const command = message.type;
+            editQueue = editQueue
+              .then(async () => {
+                await vscode.commands.executeCommand(command);
+              })
+              .catch((error: unknown) => {
+                this.log.error(`${name}: ${command} failed: ${String(error)}`);
+              });
+            break;
+          }
         }
       }),
       vscode.workspace.onDidChangeTextDocument((event) => {

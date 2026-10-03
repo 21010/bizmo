@@ -20,6 +20,11 @@ describe('isWebviewToHostMessage', () => {
     { type: 'importResult', version: 3, ok: false, error: 'unparsable content' },
     { type: 'log', level: 'warn', message: 'something' },
     { type: 'cspViolation', directive: 'style-src-attr', blockedURI: 'inline' },
+    { type: 'undo' },
+    { type: 'redo' },
+    { type: 'edit', content: '<x/>', baseVersion: 2 },
+    { type: 'edit', content: '<x/>', baseVersion: 2, requestId: 5 },
+    { type: 'flushed', requestId: 5 },
   ])('accepts %j', (message) => {
     expect(isWebviewToHostMessage(message)).toBe(true);
   });
@@ -30,6 +35,13 @@ describe('isWebviewToHostMessage', () => {
     ['an array', [{ type: 'ready' }]],
     ['an unknown type', { type: 'runCommand', command: 'workbench.action.terminal.new' }],
     ['an extra key', { type: 'openAsText', uri: 'file:///etc/passwd' }],
+    ['undo with a command', { type: 'undo', command: 'workbench.action.terminal.new' }],
+    ['redo with an argument', { type: 'redo', steps: 100 }],
+    ['an edit without base version', { type: 'edit', content: '<x/>' }],
+    [
+      'an edit with a string request id',
+      { type: 'edit', content: '', baseVersion: 1, requestId: 'a' },
+    ],
     ['a negative version', { type: 'importResult', version: -1, ok: false, error: 'x' }],
     ['a non-integer version', { type: 'importResult', version: 1.5, ok: false, error: 'x' }],
     ['a string version', { type: 'importResult', version: '1', ok: false, error: 'x' }],

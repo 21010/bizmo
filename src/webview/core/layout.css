@@ -1,0 +1,68 @@
+/* Canvas | rail | side panel (splitPane.ts). Nothing is placed over the canvas: its palette,
+   minimap toggle, and the bpmn.io watermark (license requirement) stay unobstructed. */
+
+.bizmo-layout {
+  --bizmo-panel-width: 320px;
+  display: grid;
+  /* The panel never takes more than half of the editor, so narrow columns keep a usable canvas. */
+  grid-template-columns: minmax(0, 1fr) 14px min(var(--bizmo-panel-width), 50%);
+  height: 100%;
+}
+
+.bizmo-layout.bizmo-panel-collapsed {
+  grid-template-columns: minmax(0, 1fr) 14px 0;
+}
+
+.bizmo-canvas-host {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+}
+
+.bizmo-rail {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border, transparent));
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.bizmo-panel-toggle {
+  flex: none;
+  height: 28px;
+  padding: 0;
+  border: none;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  background: transparent;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bizmo-panel-toggle:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.bizmo-panel-toggle:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.bizmo-splitter {
+  flex: 1;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.bizmo-splitter:hover,
+.bizmo-splitter:focus-visible {
+  background: var(--vscode-sash-hoverBorder, var(--vscode-focusBorder));
+  outline: none;
+}
+
+.bizmo-panel {
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+}

@@ -33,6 +33,9 @@ export function getState(): unknown {
   return api.getState();
 }
 
-export function setState(state: unknown): void {
-  api.setState(state);
+/** Merges into the persisted state (viewport, panel layout, … are kept side by side). */
+export function updateState(patch: Record<string, unknown>): void {
+  const current = api.getState();
+  const base = typeof current === 'object' && current !== null ? current : {};
+  api.setState({ ...base, ...patch });
 }
