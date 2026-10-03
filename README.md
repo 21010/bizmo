@@ -18,7 +18,7 @@ Model business processes next to your code, with a secure graphical editor for e
 
 - **New diagram:** File → New File… → "BPMN Diagram (Camunda 8)" or "(Camunda 7)", or the commands **Bizmo: New BPMN Diagram**.
 - Open a `.bpmn` file: it shows as a diagram. Model with the palette, the context pad, and keyboard shortcuts.
-- **Properties panel** (right): Camunda 8 or Camunda 7 properties of the selected element — task definitions, input/output mappings, headers, implementations, listeners, and more. Drag the divider (or focus it and use the arrow keys) to resize it; **Hide/Show Properties** (bottom left of the diagram) collapses it. The layout is remembered per editor.
+- **Properties panel** (right): Camunda 8 or Camunda 7 properties of the selected element — task definitions, input/output mappings, headers, implementations, listeners, and more. Drag the divider (or focus it and use the arrow keys) to resize it; the **» / «** button above the divider collapses and expands it. The layout is remembered per editor.
 - Changes go straight into the file's document: the tab shows unsaved changes, **Ctrl+S** saves, **Undo/Redo** (Ctrl+Z / Ctrl+Y, Cmd+Z / Cmd+Shift+Z on macOS) work through VS Code — on the diagram and in panel fields alike — and **Revert File** restores the saved version.
 - **Copy/paste** (Ctrl+C / Ctrl+V) uses the system clipboard; after pasting, click where the elements should go.
 - The XML and the diagram can be open side by side; changes in one appear in the other. If the file changes elsewhere while you are modeling, the file wins and the diagram reloads.

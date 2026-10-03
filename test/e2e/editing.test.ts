@@ -41,6 +41,8 @@ beforeAll(async () => {
       'chat.disableAIFeatures': true,
       'workbench.startupEditor': 'none',
       'files.autoSave': 'off',
+      // A real default layout: no empty secondary side bar taking a third of the window.
+      'workbench.secondarySideBar.defaultVisibility': 'hidden',
     }),
   );
   app = await electron.launch({
@@ -56,6 +58,14 @@ beforeAll(async () => {
     ],
   });
   win = await app.firstWindow();
+  // Same size as CI runners' default screen, so local runs see the layout CI sees.
+  // (Typed locally: the part of Electron's main-process API used here.)
+  interface ElectronMain {
+    BrowserWindow: { getAllWindows(): { setSize(width: number, height: number): void }[] };
+  }
+  await app.evaluate(({ BrowserWindow }: ElectronMain) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(1024, 768);
+  });
 });
 
 afterAll(async () => {
@@ -87,6 +97,35 @@ async function openFromExplorer(name: string): Promise<Frame> {
 }
 
 const element = (frame: Frame, id: string) => frame.locator(`[data-element-id="${id}"]`).first();
+
+/**
+ * Clicks an element where it is actually visible: the palette, the minimap toggle, or other
+ * overlays can cover parts of a small diagram, as they would for a user.
+ */
+async function clickElement(frame: Frame, id: string): Promise<void> {
+  const fraction = await element(frame, id).evaluate((gfx) => {
+    const box = gfx.getBoundingClientRect();
+    for (const fy of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+      for (const fx of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+        const hit = document.elementFromPoint(box.left + box.width * fx, box.top + box.height * fy);
+        if (hit && gfx.contains(hit)) return { fx, fy };
+      }
+    }
+    return undefined;
+  });
+  if (!fraction) throw new Error(`element ${id} is completely covered`);
+  // Raw mouse coordinates: locator.click() would scroll the element into view, which scrolls
+  // the overflow-hidden diagram container and shifts the whole canvas.
+  const box = await element(frame, id).boundingBox();
+  if (!box) throw new Error(`element ${id} has no box`);
+  await win.mouse.click(box.x + box.width * fraction.fx, box.y + box.height * fraction.fy);
+  await expect
+    .poll(() => frame.locator(`.djs-element.selected[data-element-id="${id}"]`).count(), {
+      timeout: 2000,
+    })
+    .toBe(1);
+}
+
 const onDisk = () => readFileSync(join(workspace, 'order.bpmn'), 'utf8');
 
 describe('BPMN editing in VS Code', () => {
@@ -99,14 +138,14 @@ describe('BPMN editing in VS Code', () => {
   });
 
   it('Delete changes the document (dirty)', async () => {
-    await element(frame, 'Task_Ship').click({ force: true });
+    await clickElement(frame, 'Task_Ship');
     await win.keyboard.press('Delete');
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(1);
     expect(await element(frame, 'Task_Ship').count()).toBe(0);
   });
 
   it('Ctrl+Z undoes exactly once, through VS Code (document clean again)', async () => {
-    await element(frame, 'Task_Check').click({ force: true });
+    await clickElement(frame, 'Task_Check');
     await win.keyboard.press(keys.undo);
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
     await expect.poll(() => element(frame, 'Task_Ship').count(), { timeout: 5000 }).toBe(1);
@@ -119,7 +158,7 @@ describe('BPMN editing in VS Code', () => {
   });
 
   it('Ctrl+S right after an edit saves that edit too (pre-save flush)', async () => {
-    await element(frame, 'EndEvent_Rejected').click({ force: true });
+    await clickElement(frame, 'EndEvent_Rejected');
     await win.keyboard.press('Delete');
     await win.keyboard.press(keys.save); // well within the 300 ms debounce
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
@@ -132,7 +171,7 @@ describe('BPMN editing in VS Code', () => {
   it('Ctrl+C / Ctrl+V duplicates an element (paste follows the mouse; click places it)', async () => {
     const shapes = () => frame.locator('.djs-shape').count();
     const before = await shapes();
-    await element(frame, 'Task_Check').click({ force: true });
+    await clickElement(frame, 'Task_Check');
     await win.keyboard.press(keys.copy);
     await win.keyboard.press(keys.paste);
     const box = await frame.locator('.djs-container').boundingBox();
@@ -149,7 +188,7 @@ describe('BPMN editing in VS Code', () => {
     await win.keyboard.press(keys.save);
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
 
-    await element(frame, 'Task_Check').click({ force: true });
+    await clickElement(frame, 'Task_Check');
     const type = frame.locator('#bio-properties-panel-taskDefinitionType');
     if (!(await type.isVisible())) {
       await frame

@@ -1,5 +1,7 @@
-// Canvas | splitter | side panel layout. The panel is resizable with the mouse or the keyboard
-// (arrow keys on the focused splitter) and collapsible; its size survives tab switches.
+// Canvas | rail | side panel layout. The rail holds the collapse toggle (« / ») and the resize
+// handle, so nothing is drawn over the canvas (its palette, minimap toggle, or the bpmn.io
+// watermark, which must stay visible). The panel is resizable with the mouse or the keyboard
+// (arrow keys on the focused handle) and collapsible; its size survives tab switches.
 import { getState, updateState } from './bridge';
 
 export interface SplitPane {
@@ -32,11 +34,16 @@ export function createSplitPane(root: HTMLElement, panelLabel: string): SplitPan
   const layout = document.createElement('div');
   layout.className = 'bizmo-layout';
 
-  // The canvas area holds the toggle; the modeler is placed in its own slot (replaced on recreate).
-  const canvasArea = document.createElement('div');
-  canvasArea.className = 'bizmo-canvas-area';
   const canvasHost = document.createElement('div');
   canvasHost.className = 'bizmo-canvas-host';
+
+  const rail = document.createElement('div');
+  rail.className = 'bizmo-rail';
+
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'bizmo-panel-toggle';
+  toggle.setAttribute('aria-controls', 'bizmo-panel');
 
   const splitter = document.createElement('div');
   splitter.className = 'bizmo-splitter';
@@ -46,18 +53,13 @@ export function createSplitPane(root: HTMLElement, panelLabel: string): SplitPan
   splitter.setAttribute('aria-controls', 'bizmo-panel');
   splitter.tabIndex = 0;
 
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'bizmo-panel-toggle';
-  toggle.setAttribute('aria-controls', 'bizmo-panel');
-
   const panelHost = document.createElement('aside');
   panelHost.id = 'bizmo-panel';
   panelHost.className = 'bizmo-panel';
   panelHost.setAttribute('aria-label', panelLabel);
 
-  canvasArea.append(canvasHost, toggle);
-  layout.append(canvasArea, splitter, panelHost);
+  rail.append(toggle, splitter);
+  layout.append(canvasHost, rail, panelHost);
   root.append(layout);
 
   const apply = () => {
@@ -65,9 +67,11 @@ export function createSplitPane(root: HTMLElement, panelLabel: string): SplitPan
     layout.classList.toggle('bizmo-panel-collapsed', state.collapsed);
     splitter.hidden = state.collapsed;
     panelHost.hidden = state.collapsed;
+    const label = `${state.collapsed ? 'Show' : 'Hide'} ${panelLabel}`;
     toggle.setAttribute('aria-expanded', String(!state.collapsed));
-    toggle.textContent = state.collapsed ? `Show ${panelLabel}` : `Hide ${panelLabel}`;
-    toggle.title = toggle.textContent;
+    toggle.setAttribute('aria-label', label);
+    toggle.title = label;
+    toggle.textContent = state.collapsed ? '«' : '»';
     splitter.setAttribute('aria-valuemin', String(MIN_WIDTH));
     splitter.setAttribute('aria-valuemax', String(maxWidth()));
     splitter.setAttribute('aria-valuenow', String(state.width));

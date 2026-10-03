@@ -1,30 +1,55 @@
-/* Canvas | splitter | side panel (splitPane.ts). */
+/* Canvas | rail | side panel (splitPane.ts). Nothing is placed over the canvas: its palette,
+   minimap toggle, and the bpmn.io watermark (license requirement) stay unobstructed. */
 
 .bizmo-layout {
   --bizmo-panel-width: 320px;
   display: grid;
-  /* The panel never takes more than 60% of the editor, so narrow columns keep a usable canvas. */
-  grid-template-columns: minmax(0, 1fr) 4px min(var(--bizmo-panel-width), 60%);
+  /* The panel never takes more than half of the editor, so narrow columns keep a usable canvas. */
+  grid-template-columns: minmax(0, 1fr) 14px min(var(--bizmo-panel-width), 50%);
   height: 100%;
 }
 
 .bizmo-layout.bizmo-panel-collapsed {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 14px 0;
 }
 
-.bizmo-canvas-area {
+.bizmo-canvas-host {
   position: relative;
   min-width: 0;
   height: 100%;
 }
 
-.bizmo-canvas-host {
-  height: 100%;
+.bizmo-rail {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--vscode-panel-border, var(--vscode-editorGroup-border, transparent));
+  background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+}
+
+.bizmo-panel-toggle {
+  flex: none;
+  height: 28px;
+  padding: 0;
+  border: none;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  background: transparent;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bizmo-panel-toggle:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.bizmo-panel-toggle:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
 }
 
 .bizmo-splitter {
+  flex: 1;
   cursor: col-resize;
-  background: var(--vscode-panel-border, var(--vscode-editorGroup-border, transparent));
   touch-action: none;
 }
 
@@ -40,29 +65,4 @@
   overflow: auto;
   background: var(--vscode-sideBar-background, var(--vscode-editor-background));
   color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
-}
-
-/* Bottom-left of the canvas: the palette is top-left, the minimap toggle top-right, and the
-   bpmn.io watermark bottom-right (which must stay visible). */
-.bizmo-panel-toggle {
-  position: absolute;
-  bottom: 12px;
-  left: 12px;
-  z-index: 50;
-  padding: 2px 8px;
-  border: 1px solid var(--vscode-button-border, var(--vscode-panel-border, transparent));
-  border-radius: 2px;
-  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
-  background: var(--vscode-button-secondaryBackground, var(--vscode-editorWidget-background));
-  font: inherit;
-  cursor: pointer;
-}
-
-.bizmo-panel-toggle:hover {
-  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground));
-}
-
-.bizmo-panel-toggle:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
-  outline-offset: 2px;
 }

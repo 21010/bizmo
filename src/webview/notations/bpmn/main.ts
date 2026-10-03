@@ -106,6 +106,35 @@ const isUsableViewbox = (box: Viewbox | undefined): box is Viewbox =>
 
 let pendingFit: ResizeObserver | undefined;
 
+const FIT_MARGIN = 16;
+
+/**
+ * Like `zoom('fit-viewport')`, but keeps the diagram clear of what the modeler draws over the
+ * canvas: the palette (left) and the minimap toggle (top). In small editors fit-viewport would put
+ * the first elements underneath them. Never zooms in beyond 100%.
+ */
+function fitClearOfOverlays(canvas: Canvas, container: Element): void {
+  const { inner } = canvas.viewbox();
+  const area = container.getBoundingClientRect();
+  const palette = container.querySelector('.djs-palette')?.getBoundingClientRect();
+  const minimap = container.querySelector('.djs-minimap')?.getBoundingClientRect();
+  const left = (palette ? Math.max(0, palette.right - area.left) : 0) + FIT_MARGIN;
+  const top = (minimap ? Math.max(0, minimap.bottom - area.top) : 0) + FIT_MARGIN;
+  const width = area.width - left - FIT_MARGIN;
+  const height = area.height - top - FIT_MARGIN;
+  if (inner.width <= 0 || inner.height <= 0 || width < 80 || height < 80) {
+    canvas.zoom('fit-viewport');
+    return;
+  }
+  const scale = Math.min(1, width / inner.width, height / inner.height);
+  canvas.viewbox({
+    x: inner.x - left / scale,
+    y: inner.y - top / scale,
+    width: area.width / scale,
+    height: area.height / scale,
+  });
+}
+
 /**
  * Restores the previous viewport or fits the diagram. Never fails the import: a zero-sized canvas
  * (hidden or very narrow editor) makes diagram-js compute non-finite scales, so fitting waits
@@ -126,7 +155,7 @@ function showViewport(instance: Modeler, previous: Viewbox | undefined): void {
           height: previous.height,
         });
       } else {
-        canvas.zoom('fit-viewport');
+        fitClearOfOverlays(canvas, container);
       }
     } catch (error) {
       post({ type: 'log', level: 'warn', message: bounded(`Viewport: ${String(error)}`) });

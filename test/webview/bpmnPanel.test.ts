@@ -138,6 +138,21 @@ describe('properties panel', () => {
 });
 
 describe('panel layout', () => {
+  it.each([1200, 700, 460])(
+    'never covers the bpmn.io watermark (license requirement) at %ipx',
+    async (width) => {
+      const w = await open('c8-order.bpmn', 'c8');
+      await w.page.setViewportSize({ width, height: 700 });
+      await w.page.waitForTimeout(200);
+      const uncovered = await w.page.locator('.bjs-powered-by').evaluate((watermark) => {
+        const box = watermark.getBoundingClientRect();
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        return box.width > 0 && hit !== null && watermark.contains(hit);
+      });
+      expect(uncovered).toBe(true);
+    },
+  );
+
   const panelWidth = (w: WebviewPage) =>
     w.page.locator('#bizmo-panel').evaluate((e) => e.getBoundingClientRect().width);
 
