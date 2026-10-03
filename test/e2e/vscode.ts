@@ -105,7 +105,10 @@ export async function openFromExplorer(win: Page, name: string): Promise<Frame> 
       await sleep(250);
     }
     // Clicked before VS Code registered Bizmo's editor (start-up): close the text editor and retry.
+    // The mouse still rests on the item, so its path hover would intercept the next click.
     await win.keyboard.press(keys.close);
+    await win.mouse.move(0, 0);
+    await win.keyboard.press('Escape');
   }
   throw new Error('diagram editor did not open');
 }
