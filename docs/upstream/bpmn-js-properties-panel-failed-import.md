@@ -1,7 +1,7 @@
 # Upstream report draft: failed import breaks all later imports (bpmn-js-properties-panel)
 
 - Target repository: https://github.com/bpmn-io/bpmn-js-properties-panel
-- Status: **draft — not filed.** To be filed from the maintainer's GitHub account after review.
+- Status: **filed 2026-10-03** as [bpmn-js-properties-panel#1256](https://github.com/bpmn-io/bpmn-js-properties-panel/issues/1256); fix and regression test in [PR #1257](https://github.com/bpmn-io/bpmn-js-properties-panel/pull/1257) (awaiting CLA signature and maintainer review).
 - Found by: Bizmo M1 spike S1; reproduced with self-written diagrams (`spikes/upstream-repro/`).
 - Bizmo workaround (stays in place either way): recreate the modeler after a failed import (ADR 0008).
 
@@ -179,43 +179,12 @@ The other handlers already guard against this: `onSelectionChanged` (effect `2a`
      };
 ```
 
-Verified by patching the published 5.65.1 bundle: all sequences above (including repeated failures and the Camunda 8 distribution) import correctly afterwards.
+Verified:
 
-Regression test suggestion for `test/spec/BpmnPropertiesPanelRenderer.spec.js`:
+- Patched into the published 5.65.1 bundle: all sequences above (including repeated failures and the Camunda 8 distribution) import correctly afterwards.
+- In this repository (`main` at `aefd162`, unchanged since 5.65.1): a new test `should recover after failed import` in `test/spec/BpmnPropertiesPanelRenderer.spec.js` fails without the fix (`TypeError: businessObject.get is not a function`) and passes with it.
 
-```js
-it('should recover after failed import', async function () {
-  // given
-  const diagramXml = require('test/fixtures/simple.bpmn').default;
-
-  const { modeler } = await createModeler(diagramXml);
-
-  // wait for the panel's effects (import.done listener) to be registered
-  await act(() => {});
-
-  const invalidXml = diagramXml.replace(/bpmnElement="([^"]+)"/, 'bpmnElement="unknown process"');
-
-  // when
-  let error;
-
-  try {
-    await modeler.importXML(invalidXml);
-  } catch (e) {
-    error = e;
-  }
-
-  // assume
-  expect(error).to.exist;
-
-  // then
-  const { warnings } = await modeler.importXML(diagramXml);
-
-  expect(warnings).to.be.empty;
-  expect(domQuery('.bio-properties-panel', propertiesContainer)).to.exist;
-});
-```
-
-(The invalid diagram only needs an unresolvable `BPMNPlane#bpmnElement`; `act` is the helper the spec already uses.)
+A pull request with the fix and the test follows.
 
 ### Environment
 
@@ -228,5 +197,6 @@ it('should recover after failed import', async function () {
 ## Notes for filing
 
 - Check once more for an existing issue right before filing (searched 2026-10-02: none for "businessObject.get is not a function", "getTimerEventDefinition", "TimerProps import").
-- The regression test follows the spec's conventions (`createModeler`, `act`, `test/fixtures/simple.bpmn`) but has not been run in their repository.
-- Optional follow-up: a pull request with the fix and test (requires forking the repository from the maintainer's account).
+- Fix and regression test live on branch `fix-failed-import-implicit-root` of the fork `21010/bpmn-js-properties-panel` (local clone: `~/projects/bpmn-js-properties-panel`). Red/green verified with their Karma suite (system Chrome; the Playwright Chrome for Testing build does not connect to Karma on this machine).
+- The test needs `act(async () => createModeler(...))`: the panel's `import.done` listener is a Preact effect registered after paint; without flushing it the bug does not trigger.
+- An unresolvable plane reference alone (`bpmnElement="unknown"`) imports successfully; the failing variant gives the process an ID with whitespace (`Process 1`), which fails at render time after the canvas was cleared.
