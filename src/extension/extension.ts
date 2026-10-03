@@ -7,18 +7,23 @@ import {
   BpmnEditorProvider,
   type BpmnEditorState,
 } from './notations/bpmn/bpmnEditorProvider';
+import { ElementTemplateService } from './notations/bpmn/elementTemplateService';
 
 /** Returned from `activate` only in test mode, so integration tests can observe editor state. */
 export interface TestingApi {
   bpmnEditorStates(): BpmnEditorState[];
+  /** Reloads element templates now and resolves when done. */
+  reloadElementTemplates(): Promise<void>;
 }
 
 export function activate(context: vscode.ExtensionContext): { testing: TestingApi } | undefined {
   const log = vscode.window.createOutputChannel('Bizmo', { log: true });
-  const bpmn = new BpmnEditorProvider(context.extensionUri, log);
+  const templates = new ElementTemplateService(log);
+  const bpmn = new BpmnEditorProvider(context.extensionUri, log, templates);
 
   context.subscriptions.push(
     log,
+    templates,
     vscode.window.registerCustomEditorProvider(BPMN_VIEW_TYPE, bpmn, {
       webviewOptions: { retainContextWhenHidden: false },
       supportsMultipleEditorsPerDocument: true,
@@ -46,7 +51,12 @@ export function activate(context: vscode.ExtensionContext): { testing: TestingAp
   log.info(`Activated ${context.extension.id} ${version}`);
 
   if (context.extensionMode === vscode.ExtensionMode.Test) {
-    return { testing: { bpmnEditorStates: () => [...bpmn.states] } };
+    return {
+      testing: {
+        bpmnEditorStates: () => [...bpmn.states],
+        reloadElementTemplates: () => templates.reload(0),
+      },
+    };
   }
   return undefined;
 }

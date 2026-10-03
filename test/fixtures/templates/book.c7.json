@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/@camunda/element-templates-json-schema/resources/schema.json",
+  "name": "Book invoice",
+  "id": "io.bizmo.test.book",
+  "version": 1,
+  "appliesTo": [
+    "bpmn:ServiceTask"
+  ],
+  "properties": [
+    {
+      "label": "Delegate",
+      "type": "String",
+      "value": "org.example.BookInvoiceDelegate",
+      "binding": {
+        "type": "property",
+        "name": "camunda:class"
+      }
+    }
+  ]
+}

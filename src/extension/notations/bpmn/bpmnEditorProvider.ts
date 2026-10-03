@@ -9,6 +9,7 @@ import {
 } from '../../../shared/protocol';
 import { DocumentSync, type SyncTarget } from '../../core/documentSync';
 import { checkXmlDocument } from '../../core/guards';
+import type { ElementTemplateService } from './elementTemplateService';
 import { reopenWith, TEXT_EDITOR } from '../../core/reopen';
 import { renderWebviewHtml } from '../../core/webviewHtml';
 import { createNonce } from '../../security/nonce';
@@ -24,6 +25,9 @@ export interface BpmnEditorState {
   lastImport?: ImportResult;
   rejected?: LoadRejection;
   edits: Record<EditOutcome, number>;
+  /** Number of element templates last sent to the webview, per platform. */
+  templatesSent?: { c7: number; c8: number };
+  templateErrors: number;
   cspViolations: number;
   droppedMessages: number;
 }
@@ -38,6 +42,7 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly log: vscode.LogOutputChannel,
+    private readonly templates: ElementTemplateService,
   ) {}
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
@@ -63,6 +68,7 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
     const state: BpmnEditorState = {
       uri: document.uri.toString(),
       edits: { applied: 0, unchanged: 0, stale: 0, failed: 0 },
+      templateErrors: 0,
       cspViolations: 0,
       droppedMessages: 0,
     };
@@ -82,6 +88,14 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
       state.rejected = message.type === 'loadRejected' ? message.reason : undefined;
       if (message.type === 'loadRejected') this.log.warn(`${name}: not loaded (${message.reason})`);
       post(message);
+    };
+
+    /** Element templates for both platforms; the webview applies the ones for the diagram. */
+    const sendTemplates = () => {
+      if (!ready) return;
+      const { c7, c8 } = this.templates.current();
+      state.templatesSent = { c7: c7.length, c8: c8.length };
+      post({ type: 'templates', c7, c8 });
     };
 
     const handleEdit = async (content: string, baseVersion: number, requestId?: number) => {
@@ -131,6 +145,11 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
           case 'ready':
             ready = true;
             sendDocument('init');
+            sendTemplates();
+            break;
+          case 'templateErrors':
+            state.templateErrors += message.messages.length;
+            for (const error of message.messages) this.log.warn(`Element template: ${error}`);
             break;
           case 'edit':
             editQueue = editQueue
@@ -186,7 +205,9 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider {
       vscode.workspace.onWillSaveTextDocument((event) => {
         if (event.document === document) event.waitUntil(flush());
       }),
+      this.templates.onDidChange(sendTemplates),
     ];
+    void this.templates.noticeRestrictedMode();
 
     panel.onDidDispose(() => {
       for (const subscription of subscriptions) subscription.dispose();

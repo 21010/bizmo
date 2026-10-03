@@ -17,7 +17,12 @@ export type HostToWebviewMessage =
    * Answer to every `edit`. `version` is the document version after it; the webview bases its next
    * edit on it. `stale` and `failed` are followed by an `update` with the current document.
    */
-  | { type: 'editResult'; outcome: EditOutcome; version: number };
+  | { type: 'editResult'; outcome: EditOutcome; version: number }
+  /**
+   * Element templates from the workspace, per platform (ADR 0010, D4). Empty in Restricted Mode.
+   * Template content is workspace data: the webview validates it with the official validator.
+   */
+  | { type: 'templates'; c7: object[]; c8: object[] };
 
 /** What the host did with an `edit` (ADR 0007). */
 export type EditOutcome = 'applied' | 'unchanged' | 'stale' | 'failed';
@@ -44,7 +49,9 @@ export type WebviewToHostMessage =
    */
   | { type: 'edit'; content: string; baseVersion: number; requestId?: number }
   /** Answer to `flush` when nothing was pending. */
-  | { type: 'flushed'; requestId: number };
+  | { type: 'flushed'; requestId: number }
+  /** Element templates rejected by the validator (schema errors), for the host log. */
+  | { type: 'templateErrors'; messages: string[] };
 
 export const LIMITS = {
   /** Upper bound for document content in a message; the host's file size limit is lower. */
@@ -52,6 +59,8 @@ export const LIMITS = {
   text: 2000,
   warnings: 50,
   shortText: 200,
+  /** Same as the host's template count limit (templateFiles.ts). */
+  templates: 2000,
 } as const;
 
 type Fields = Record<string, unknown>;
@@ -88,6 +97,15 @@ export function isWebviewToHostMessage(value: unknown): value is WebviewToHostMe
       );
     case 'flushed':
       return hasOnlyKeys(value, ['type', 'requestId']) && isVersion(value['requestId']);
+    case 'templateErrors': {
+      const messages = value['messages'];
+      return (
+        hasOnlyKeys(value, ['type', 'messages']) &&
+        Array.isArray(messages) &&
+        messages.length <= LIMITS.warnings &&
+        messages.every((message) => isString(message, LIMITS.text))
+      );
+    }
     case 'importResult':
       if (!isVersion(value['version'])) return false;
       if (value['ok'] === true) {
@@ -151,10 +169,19 @@ export function isHostToWebviewMessage(value: unknown): value is HostToWebviewMe
           value['outcome'] === 'failed') &&
         isVersion(value['version'])
       );
+    case 'templates':
+      return (
+        hasOnlyKeys(value, ['type', 'c7', 'c8']) &&
+        isTemplateList(value['c7']) &&
+        isTemplateList(value['c8'])
+      );
     default:
       return false;
   }
 }
+
+const isTemplateList = (value: unknown): value is object[] =>
+  Array.isArray(value) && value.length <= LIMITS.templates && value.every(isObject);
 
 /** Truncates text to a protocol bound so a valid message can always be built from it. */
 export function bounded(text: string, max: number = LIMITS.text): string {

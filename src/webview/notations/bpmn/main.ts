@@ -39,6 +39,23 @@ let modeler: Modeler | undefined;
 let platform: ExecutionPlatform | undefined;
 let importing = false;
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
+/** Latest workspace element templates from the host (ADR 0010, D4); empty in Restricted Mode. */
+let templates: Record<ExecutionPlatform, object[]> = { c7: [], c8: [] };
+
+interface ElementTemplatesLoader {
+  setTemplates(templates: object[]): void;
+}
+
+/** Hands the templates for the modeler's platform to its loader, which validates them. */
+function applyTemplates(instance: Modeler, target: ExecutionPlatform): void {
+  instance
+    .get<ElementTemplatesLoader>('elementTemplatesLoader', true)
+    .setTemplates(templates[target]);
+}
+
+/** The validator's messages already name the template (`template(id: <…>, name: <…>): …`). */
+const describeTemplateProblem = (problem: unknown): string =>
+  bounded(problem instanceof Error ? problem.message : String(problem));
 
 const editSync = new EditSync(async () => {
   if (!modeler) throw new Error('no diagram');
@@ -66,6 +83,15 @@ function createModeler(target: ExecutionPlatform): Modeler {
   const instance = target === 'c7' ? new C7Modeler(options) : new C8Modeler(options);
   modeler = instance;
   platform = target;
+
+  // Invalid templates are skipped by the loader; report why.
+  instance.on('elementTemplates.errors', ({ errors }: { errors: unknown[] }) => {
+    post({
+      type: 'templateErrors',
+      messages: errors.slice(0, LIMITS.warnings).map(describeTemplateProblem),
+    });
+  });
+  applyTemplates(instance, target);
 
   // Copy/paste uses the system clipboard (bpmn-js-native-copy-paste); report its failures.
   instance.on('native-copy-paste:error', ({ message }: { message: string }) => {
@@ -256,6 +282,10 @@ onHostMessage(async (message) => {
       break;
     case 'flush':
       editSync.flush(message.requestId);
+      break;
+    case 'templates':
+      templates = { c7: message.c7, c8: message.c8 };
+      if (modeler && platform) applyTemplates(modeler, platform);
       break;
   }
 });

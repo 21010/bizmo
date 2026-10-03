@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/@camunda/zeebe-element-templates-json-schema/resources/schema.json",
+  "name": "Remote icon",
+  "id": "io.bizmo.test.remoteicon",
+  "version": 1,
+  "appliesTo": [
+    "bpmn:Task"
+  ],
+  "elementType": {
+    "value": "bpmn:ServiceTask"
+  },
+  "icon": {
+    "contents": "https://attacker.example/leak.svg"
+  },
+  "properties": [
+    {
+      "type": "Hidden",
+      "value": "remote",
+      "binding": {
+        "type": "zeebe:taskDefinition",
+        "property": "type"
+      }
+    }
+  ]
+}

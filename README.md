@@ -1,6 +1,6 @@
 # Bizmo — Business Process Modeler for VS Code
 
-> Work in progress. BPMN diagrams (Camunda 7 and 8) can be created and edited, including Camunda properties; element templates arrive next. See `CHANGELOG.md`.
+> Work in progress. BPMN diagrams (Camunda 7 and 8) can be created and edited, including Camunda properties and element templates. See `CHANGELOG.md`.
 
 Model business processes next to your code, with a secure graphical editor for each notation:
 
@@ -19,6 +19,7 @@ Model business processes next to your code, with a secure graphical editor for e
 - **New diagram:** File → New File… → "BPMN Diagram (Camunda 8)" or "(Camunda 7)", or the commands **Bizmo: New BPMN Diagram**.
 - Open a `.bpmn` file: it shows as a diagram. Model with the palette, the context pad, and keyboard shortcuts.
 - **Properties panel** (right): Camunda 8 or Camunda 7 properties of the selected element — task definitions, input/output mappings, headers, implementations, listeners, and more. Drag the divider (or focus it and use the arrow keys) to resize it; the **» / «** button above the divider collapses and expands it. The layout is remembered per editor.
+- **Element templates:** put Camunda element template files (`.json`) in `.camunda/element-templates/` anywhere in the workspace, as for Camunda Desktop Modeler. Camunda 8 templates (Zeebe schema) apply to Camunda 8 diagrams, all others to Camunda 7 diagrams. Apply one from the properties panel (**Template**) or the element's change-type menu; changes to the files take effect without reopening. Templates are loaded only in trusted workspaces; problems with a template file are listed in the **Bizmo** output channel (**Bizmo: Show Log**).
 - Changes go straight into the file's document: the tab shows unsaved changes, **Ctrl+S** saves, **Undo/Redo** (Ctrl+Z / Ctrl+Y, Cmd+Z / Cmd+Shift+Z on macOS) work through VS Code — on the diagram and in panel fields alike — and **Revert File** restores the saved version.
 - **Copy/paste** (Ctrl+C / Ctrl+V) uses the system clipboard; after pasting, click where the elements should go.
 - The XML and the diagram can be open side by side; changes in one appear in the other. If the file changes elsewhere while you are modeling, the file wins and the diagram reloads.
@@ -32,7 +33,7 @@ Model business processes next to your code, with a secure graphical editor for e
 
 - Every editor runs in a locked-down webview: strict Content Security Policy, no remote content, validated messages.
 - The extension makes no network requests and collects no telemetry.
-- In untrusted (restricted mode) workspaces, editing works but workspace configuration such as element templates is not loaded.
+- In untrusted (restricted mode) workspaces, editing works but workspace element templates are not loaded (Bizmo says so once, with a link to manage trust). Template files are size-limited, parsed as plain JSON, and their icons may only be inline images.
 
 ## Development
 
