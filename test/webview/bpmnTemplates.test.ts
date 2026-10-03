@@ -89,16 +89,18 @@ describe('element templates', () => {
     const w = await open('c8-templated.bpmn', 'c8', {
       c8: [template('notify.c8.json'), template('invalid.c8.json')],
     });
-    await expect
-      .poll(async () =>
-        (await w.posted()).filter(
-          (m): m is Extract<WebviewToHostMessage, { type: 'templateErrors' }> =>
-            m.type === 'templateErrors',
-        ),
-      )
-      .toEqual([
-        expect.objectContaining({ messages: [expect.stringContaining('Broken template')] }),
-      ]);
+    const reports = async () =>
+      (await w.posted()).filter(
+        (m): m is Extract<WebviewToHostMessage, { type: 'templateErrors' }> =>
+          m.type === 'templateErrors',
+      );
+    await expect.poll(async () => (await reports()).length).toBe(1);
+    const [report] = await reports();
+    // The validator reports several schema findings for one broken template; all name it.
+    expect(report?.messages.length).toBeGreaterThan(0);
+    expect(report?.messages.every((m) => m.includes('Broken template'))).toBe(true);
+    expect(report?.messages.some((m) => m.includes('must be array'))).toBe(true);
+    // The valid template is still loaded.
     await expect.poll(() => panelTextFor(w, 'Task_Notify')).toContain('Send notification');
   });
 

@@ -53,12 +53,9 @@ function applyTemplates(instance: Modeler, target: ExecutionPlatform): void {
     .setTemplates(templates[target]);
 }
 
-const describeTemplateProblem = (problem: unknown): string => {
-  const message = problem instanceof Error ? problem.message : String(problem);
-  const template = (problem as { template?: { id?: unknown; name?: unknown } } | null)?.template;
-  const label = typeof template?.name === 'string' ? template.name : template?.id;
-  return bounded(typeof label === 'string' ? `${label}: ${message}` : message);
-};
+/** The validator's messages already name the template (`template(id: <…>, name: <…>): …`). */
+const describeTemplateProblem = (problem: unknown): string =>
+  bounded(problem instanceof Error ? problem.message : String(problem));
 
 const editSync = new EditSync(async () => {
   if (!modeler) throw new Error('no diagram');
