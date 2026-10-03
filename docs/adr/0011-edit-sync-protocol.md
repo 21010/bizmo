@@ -1,6 +1,6 @@
 # 0011. Edit sync protocol details
 
-- Status: accepted
+- Status: accepted (decision 6 refined by ADR 0012)
 - Date: 2026-10-02
 - Builds on: ADR 0007 (text-backed editor, VS Code-owned undo), ADR 0009 (write policy)
 

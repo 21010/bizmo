@@ -144,4 +144,30 @@ describe('BPMN editing in VS Code', () => {
     await expect.poll(shapes, { timeout: 5000 }).toBeGreaterThan(before);
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(1);
   });
+
+  it('a property typed in the panel goes into the file, and undo in the field reverts it once', async () => {
+    await win.keyboard.press(keys.save);
+    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
+
+    await element(frame, 'Task_Check').click({ force: true });
+    const type = frame.locator('#bio-properties-panel-taskDefinitionType');
+    if (!(await type.isVisible())) {
+      await frame
+        .locator('[data-group-id="group-taskDefinition"] .bio-properties-panel-group-header')
+        .click();
+    }
+    await type.click();
+    await type.press(`${mod}+A`);
+    await win.keyboard.type('check-inventory');
+    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(1);
+
+    await win.keyboard.press(keys.undo); // focus is still in the panel field
+    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
+    await expect
+      .poll(() => frame.locator('#bio-properties-panel-taskDefinitionType').inputValue(), {
+        timeout: 5000,
+      })
+      .toBe('check-stock');
+    expect(onDisk()).toContain('type="check-stock"');
+  });
 });

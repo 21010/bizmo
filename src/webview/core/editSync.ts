@@ -31,10 +31,13 @@ export class EditSync {
     this.timer = setTimeout(() => void this.send(), this.delayMs);
   }
 
-  /** Sends pending changes immediately (for example when focus leaves the editor). */
-  sendNow(): void {
+  /**
+   * Sends pending changes immediately (focus left the editor, or an undo is about to run).
+   * Resolves once the edit has been posted.
+   */
+  sendNow(): Promise<void> {
     clearTimeout(this.timer);
-    void this.send();
+    return this.send();
   }
 
   /** The host is about to save and asks for pending changes. */

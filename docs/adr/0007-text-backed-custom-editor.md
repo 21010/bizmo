@@ -1,6 +1,6 @@
 # 0007. Text-backed custom editor with VS Code-owned undo
 
-- Status: accepted
+- Status: accepted (decision 3 refined by ADR 0012)
 - Date: 2026-10-02
 - Decision ID: D2
 - Evidence: spikes S2 and S4 (`spikes/README.md`)

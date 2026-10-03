@@ -1,30 +1,31 @@
 # Bizmo — Business Process Modeler for VS Code
 
-> Work in progress. BPMN diagrams (Camunda 7 and 8) can be created and edited; the Camunda properties panel arrives next. See `CHANGELOG.md`.
+> Work in progress. BPMN diagrams (Camunda 7 and 8) can be created and edited, including Camunda properties; element templates arrive next. See `CHANGELOG.md`.
 
 Model business processes next to your code, with a secure graphical editor for each notation:
 
-| Notation                                                 | Files                             | Status  |
-| -------------------------------------------------------- | --------------------------------- | ------- |
-| BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Editing |
-| DMN — Camunda 7 and Camunda 8                            | `*.dmn`                           | Planned |
-| Camunda Forms                                            | `*.form`                          | Planned |
-| Value Stream Mapping (Lean)                              | `*.vsm.json`                      | Planned |
-| SIPOC and swimlane flowcharts                            | `*.sipoc.json`, `*.swimlane.json` | Planned |
-| Event Storming                                           | `*.eventstorm.json`               | Planned |
-| UML — activity, state machine, class, use case, sequence | `*.uml.json`                      | Planned |
+| Notation                                                 | Files                             | Status              |
+| -------------------------------------------------------- | --------------------------------- | ------------------- |
+| BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Editing, properties |
+| DMN — Camunda 7 and Camunda 8                            | `*.dmn`                           | Planned             |
+| Camunda Forms                                            | `*.form`                          | Planned             |
+| Value Stream Mapping (Lean)                              | `*.vsm.json`                      | Planned             |
+| SIPOC and swimlane flowcharts                            | `*.sipoc.json`, `*.swimlane.json` | Planned             |
+| Event Storming                                           | `*.eventstorm.json`               | Planned             |
+| UML — activity, state machine, class, use case, sequence | `*.uml.json`                      | Planned             |
 
 ## Using the BPMN editor
 
 - **New diagram:** File → New File… → "BPMN Diagram (Camunda 8)" or "(Camunda 7)", or the commands **Bizmo: New BPMN Diagram**.
 - Open a `.bpmn` file: it shows as a diagram. Model with the palette, the context pad, and keyboard shortcuts.
-- Changes go straight into the file's document: the tab shows unsaved changes, **Ctrl+S** saves, **Undo/Redo** (Ctrl+Z / Ctrl+Y, Cmd+Z / Cmd+Shift+Z on macOS) work through VS Code, and **Revert File** restores the saved version.
+- **Properties panel** (right): Camunda 8 or Camunda 7 properties of the selected element — task definitions, input/output mappings, headers, implementations, listeners, and more. Drag the divider (or focus it and use the arrow keys) to resize it; **Hide/Show Properties** (bottom left of the diagram) collapses it. The layout is remembered per editor.
+- Changes go straight into the file's document: the tab shows unsaved changes, **Ctrl+S** saves, **Undo/Redo** (Ctrl+Z / Ctrl+Y, Cmd+Z / Cmd+Shift+Z on macOS) work through VS Code — on the diagram and in panel fields alike — and **Revert File** restores the saved version.
 - **Copy/paste** (Ctrl+C / Ctrl+V) uses the system clipboard; after pasting, click where the elements should go.
 - The XML and the diagram can be open side by side; changes in one appear in the other. If the file changes elsewhere while you are modeling, the file wins and the diagram reloads.
 - **Open as Text** (editor title bar, or right-click the file in the Explorer) switches to the XML; **Open Diagram** switches back. Both replace the current tab.
 - The execution platform (Camunda 7 or 8) is read from the file; files without that information are treated as Camunda 8.
 - Files that cannot be displayed (invalid XML, not BPMN, too large, or containing a `DOCTYPE`) show the reason and an **Open as Text** button. The size limit is the `bizmo.maxFileSizeMB` setting (default 10).
-- The diagram canvas is light in every color theme for now.
+- The diagram canvas is light in every color theme for now; the properties panel follows the VS Code theme.
 - Known limitation: a file opened in the first moments after VS Code starts may open as text, before VS Code has registered Bizmo's editor. Use **Open Diagram**.
 
 ## Security

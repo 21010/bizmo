@@ -52,9 +52,9 @@ describe('BPMN viewer webview', () => {
     });
     expect(await w.waitForImport(1)).toMatchObject({ ok: true });
     expect(await w.page.evaluate(() => window.__pwned)).toBeUndefined();
-    expect(await w.page.locator('img, iframe, a[href^="command:"], svg svg[onload]').count()).toBe(
-      0,
-    );
+    // (CodeMirror renders src-less <img class="cm-widgetBuffer"> placeholders; those are inert.)
+    const active = 'img[src], iframe, a[href^="command:"], [onload], [onerror], [onclick]';
+    expect(await w.page.locator(active).count()).toBe(0);
     expect(await w.page.locator('.djs-container').textContent()).toContain('<img src=x');
   });
 

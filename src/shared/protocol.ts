@@ -33,6 +33,12 @@ export type WebviewToHostMessage =
   | { type: 'cspViolation'; directive: string; blockedURI: string }
   | { type: 'openAsText' }
   /**
+   * Undo/redo keystroke in the webview (ADR 0012). The host runs VS Code's undo/redo after any
+   * edit already received, so a change made just before the keystroke is what gets undone.
+   */
+  | { type: 'undo' }
+  | { type: 'redo' }
+  /**
    * The full new document content, based on the document version the webview last rendered.
    * `requestId` is set when the edit answers a `flush`.
    */
@@ -70,6 +76,8 @@ export function isWebviewToHostMessage(value: unknown): value is WebviewToHostMe
   switch (value['type']) {
     case 'ready':
     case 'openAsText':
+    case 'undo':
+    case 'redo':
       return hasOnlyKeys(value, ['type']);
     case 'edit':
       return (
