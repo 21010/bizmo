@@ -26,7 +26,12 @@ export type HostToWebviewMessage =
   /** User settings the webview acts on. Sent after `ready` and whenever they change. */
   | { type: 'settings'; linting: boolean }
   /** Selects an element and shows its lint problem, if any (from a diagnostic's link). */
-  | { type: 'reveal'; elementId: string };
+  | { type: 'reveal'; elementId: string }
+  /** Asks for an image of the diagram; answered by `exported`. */
+  | { type: 'export'; requestId: number; format: ImageFormat };
+
+/** Image formats the diagram can be exported to. */
+export type ImageFormat = 'svg' | 'png';
 
 /** Severity of a lint problem, as shown in VS Code's Problems view. */
 export type LintSeverity = 'error' | 'warning' | 'info';
@@ -68,7 +73,13 @@ export type WebviewToHostMessage =
   /** Element templates rejected by the validator (schema errors), for the host log. */
   | { type: 'templateErrors'; messages: string[] }
   /** All current lint problems of the diagram (replaces the previous ones); empty when off. */
-  | { type: 'lint'; problems: LintProblem[] };
+  | { type: 'lint'; problems: LintProblem[] }
+  /**
+   * Answer to `export`: SVG markup, or a PNG as base64. Only image data; the host chooses where
+   * it goes (save dialog) and checks the format before writing.
+   */
+  | { type: 'exported'; requestId: number; ok: true; format: ImageFormat; data: string }
+  | { type: 'exported'; requestId: number; ok: false; error: string };
 
 export const LIMITS = {
   /** Upper bound for document content in a message; the host's file size limit is lower. */
@@ -80,6 +91,8 @@ export const LIMITS = {
   templates: 2000,
   /** Lint problems per message; Camunda Desktop Modeler shows far fewer in practice. */
   lintProblems: 1000,
+  /** Exported image data (SVG text or PNG base64); PNGs are also capped in pixels. */
+  exportChars: 64 * 1024 * 1024,
 } as const;
 
 type Fields = Record<string, unknown>;
@@ -92,6 +105,8 @@ const isString = (value: unknown, max: number): value is string =>
 
 const isVersion = (value: unknown): value is number =>
   typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+
+const isImageFormat = (value: unknown): value is ImageFormat => value === 'svg' || value === 'png';
 
 const isPlatform = (value: unknown): value is ExecutionPlatform => value === 'c7' || value === 'c8';
 
@@ -134,6 +149,20 @@ export function isWebviewToHostMessage(value: unknown): value is WebviewToHostMe
         problems.every(isLintProblem)
       );
     }
+    case 'exported':
+      if (!isVersion(value['requestId'])) return false;
+      if (value['ok'] === true) {
+        return (
+          hasOnlyKeys(value, ['type', 'requestId', 'ok', 'format', 'data']) &&
+          isImageFormat(value['format']) &&
+          isString(value['data'], LIMITS.exportChars)
+        );
+      }
+      return (
+        value['ok'] === false &&
+        hasOnlyKeys(value, ['type', 'requestId', 'ok', 'error']) &&
+        isString(value['error'], LIMITS.text)
+      );
     case 'importResult':
       if (!isVersion(value['version'])) return false;
       if (value['ok'] === true) {
@@ -205,6 +234,12 @@ export function isHostToWebviewMessage(value: unknown): value is HostToWebviewMe
       );
     case 'settings':
       return hasOnlyKeys(value, ['type', 'linting']) && typeof value['linting'] === 'boolean';
+    case 'export':
+      return (
+        hasOnlyKeys(value, ['type', 'requestId', 'format']) &&
+        isVersion(value['requestId']) &&
+        isImageFormat(value['format'])
+      );
     case 'reveal':
       return (
         hasOnlyKeys(value, ['type', 'elementId']) && isString(value['elementId'], LIMITS.shortText)

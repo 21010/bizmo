@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { newDiagramXml } from '../shared/bpmn/newDiagram';
-import type { ExecutionPlatform } from '../shared/protocol';
+import type { ExecutionPlatform, ImageFormat } from '../shared/protocol';
 import { reopenWith, TEXT_EDITOR } from './core/reopen';
 import {
   BPMN_VIEW_TYPE,
@@ -41,6 +41,13 @@ export function activate(context: vscode.ExtensionContext): { testing: TestingAp
       const target = uri ?? vscode.window.activeTextEditor?.document.uri;
       if (target) await reopenWith(target, BPMN_VIEW_TYPE);
     }),
+    // From the editor title menu VS Code passes the editor's resource; tests also pass a target.
+    vscode.commands.registerCommand('bizmo.bpmn.exportSvg', (uri?: unknown, target?: unknown) =>
+      exportImage('svg', uri, target),
+    ),
+    vscode.commands.registerCommand('bizmo.bpmn.exportPng', (uri?: unknown, target?: unknown) =>
+      exportImage('png', uri, target),
+    ),
     vscode.commands.registerCommand(SHOW_PROBLEM_COMMAND, (uri: unknown, elementId: unknown) =>
       bpmn.showProblem(uri, elementId),
     ),
@@ -51,6 +58,12 @@ export function activate(context: vscode.ExtensionContext): { testing: TestingAp
       createDiagram('c7', target),
     ),
   );
+
+  async function exportImage(format: ImageFormat, uri: unknown, target: unknown) {
+    const documentUri = uri instanceof vscode.Uri ? uri : activeCustomEditorUri(BPMN_VIEW_TYPE);
+    if (!documentUri) return undefined;
+    return bpmn.exportImage(format, documentUri, target instanceof vscode.Uri ? target : undefined);
+  }
 
   const { version } = context.extension.packageJSON as { version: string };
   log.info(`Activated ${context.extension.id} ${version}`);

@@ -20,6 +20,7 @@ import { EditSync } from '../../core/editSync';
 import { hideOverlay, showOverlay } from '../../core/overlay';
 import { createSplitPane } from '../../core/splitPane';
 import { routeUndoRedoToHost } from '../../core/undoRouting';
+import { exportImage } from './imageExport';
 import { DiagramLinter } from './lint';
 
 type Modeler = C8Modeler | C7Modeler;
@@ -301,6 +302,19 @@ onHostMessage(async (message) => {
     case 'settings':
       linter.setEnabled(message.linting, modeler, platform);
       break;
+    case 'export': {
+      const { requestId, format } = message;
+      try {
+        if (!modeler) throw new Error('No diagram is shown');
+        const data = await exportImage(modeler, format);
+        if (data.length > LIMITS.exportChars) throw new Error('The image is too large to export');
+        post({ type: 'exported', requestId, ok: true, format, data });
+      } catch (error) {
+        const detail = bounded(error instanceof Error ? error.message : String(error));
+        post({ type: 'exported', requestId, ok: false, error: detail });
+      }
+      break;
+    }
     case 'reveal':
       if (modeler) linter.reveal(modeler, message.elementId);
       break;
