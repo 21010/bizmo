@@ -2,7 +2,7 @@
   "name": "bizmo",
   "displayName": "Bizmo — Business Process Modeler",
   "description": "Bizmo: secure business process modeling in VS Code — BPMN (Camunda 7 and 8), DMN, Camunda Forms, Value Stream Mapping, SIPOC, Event Storming, and UML.",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "publisher": "21010",
   "license": "MIT",
   "repository": {
@@ -89,6 +89,16 @@
         "command": "bizmo.bpmn.showProblem",
         "title": "Show Problem in Diagram",
         "category": "Bizmo"
+      },
+      {
+        "command": "bizmo.bpmn.exportSvg",
+        "title": "Export as SVG…",
+        "category": "Bizmo"
+      },
+      {
+        "command": "bizmo.bpmn.exportPng",
+        "title": "Export as PNG…",
+        "category": "Bizmo"
       }
     ],
     "menus": {
@@ -102,6 +112,16 @@
           "command": "bizmo.bpmn.openDiagram",
           "when": "resourceExtname == .bpmn && activeEditor == workbench.editors.files.textFileEditor",
           "group": "navigation"
+        },
+        {
+          "command": "bizmo.bpmn.exportSvg",
+          "when": "activeCustomEditorId == bizmo.bpmn",
+          "group": "1_export"
+        },
+        {
+          "command": "bizmo.bpmn.exportPng",
+          "when": "activeCustomEditorId == bizmo.bpmn",
+          "group": "1_export"
         }
       ],
       "explorer/context": [
@@ -128,6 +148,14 @@
         {
           "command": "bizmo.bpmn.showProblem",
           "when": "false"
+        },
+        {
+          "command": "bizmo.bpmn.exportSvg",
+          "when": "activeCustomEditorId == bizmo.bpmn"
+        },
+        {
+          "command": "bizmo.bpmn.exportPng",
+          "when": "activeCustomEditorId == bizmo.bpmn"
         }
       ],
       "file/newFile": [

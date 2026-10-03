@@ -1,0 +1,113 @@
+name: Release
+
+# A version tag (v1.2.3, or v1.2.3-rc.1 for a pre-release) on a commit of main builds the .vsix,
+# checks it, creates the SBOM and a build provenance attestation, and publishes a GitHub release
+# (ADR 0010, D5). Run manually for a dry run: everything except the attestation and the release;
+# the files are kept as a workflow artifact.
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the release
+      id-token: write # sign the provenance attestation
+      attestations: write
+    env:
+      PUBLISH: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Version
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$PUBLISH" = "true" ]; then
+            tag="${GITHUB_REF_NAME}"
+            if [ "$tag" != "v$version" ]; then
+              echo "::error::Tag $tag does not match package.json version $version"
+              exit 1
+            fi
+            # Only commits that are on main (and so passed CI on all platforms) are released.
+            git fetch --no-tags origin main
+            if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+              echo "::error::$tag is not on main"
+              exit 1
+            fi
+          fi
+          node scripts/release-notes.mjs "$version" > release-notes.md
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:webview
+      - run: npm run check:notices
+      - run: npm audit --omit=dev --audit-level=low
+      - run: npm run build:prod
+      - run: npm run check:vsix
+      - name: Package
+        run: npx vsce package --no-dependencies --out "bizmo-${{ steps.version.outputs.version }}.vsix"
+      - name: SBOM (CycloneDX, runtime dependencies)
+        run: |
+          file="bizmo-${{ steps.version.outputs.version }}.cdx.json"
+          npm sbom --omit dev --sbom-format cyclonedx > "$file"
+          # npm names the root component after the folder; use the package's name and version.
+          node -e "
+            const fs = require('fs');
+            const { name, version } = require('./package.json');
+            const sbom = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+            Object.assign(sbom.metadata.component, { name, version });
+            fs.writeFileSync(process.argv[1], JSON.stringify(sbom, null, 2));
+          " "$file"
+      - name: Checksums
+        run: sha256sum bizmo-*.vsix bizmo-*.cdx.json > SHA256SUMS.txt
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        if: env.PUBLISH == 'true'
+        with:
+          subject-path: bizmo-*.vsix
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bizmo-${{ steps.version.outputs.version }}
+          path: |
+            bizmo-*.vsix
+            bizmo-*.cdx.json
+            SHA256SUMS.txt
+            release-notes.md
+
+      - name: GitHub release
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          prerelease=""
+          case "$VERSION" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" $prerelease \
+            --title "Bizmo $VERSION" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            "bizmo-$VERSION.vsix" "bizmo-$VERSION.cdx.json" SHA256SUMS.txt

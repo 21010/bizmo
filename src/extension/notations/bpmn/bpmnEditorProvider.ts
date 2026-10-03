@@ -5,6 +5,7 @@ import {
   LIMITS,
   type EditOutcome,
   type HostToWebviewMessage,
+  type ImageFormat,
   type ImportResult,
   type LintProblem,
   type LintSeverity,
@@ -12,6 +13,7 @@ import {
 } from '../../../shared/protocol';
 import { DocumentSync, type SyncTarget } from '../../core/documentSync';
 import { checkXmlDocument } from '../../core/guards';
+import { checkExportedImage } from '../../core/imageExport';
 import type { ElementTemplateService } from './elementTemplateService';
 import { locateElementIds } from './lintLocations';
 import { reopenWith, TEXT_EDITOR } from '../../core/reopen';
@@ -33,10 +35,16 @@ const SEVERITY: Record<LintSeverity, vscode.DiagnosticSeverity> = {
 interface EditorHandle {
   panel: vscode.WebviewPanel;
   reveal(elementId: string): void;
+  /** SVG markup or PNG base64 from the webview (not yet checked). */
+  requestImage(format: ImageFormat): Promise<string>;
 }
 
 /** How long a save waits for the webview to hand over pending changes. */
 const FLUSH_TIMEOUT_MS = 2000;
+/** How long an export waits for the image (large PNGs take a few seconds). */
+const EXPORT_TIMEOUT_MS = 30000;
+
+const FORMAT_NAME: Record<ImageFormat, string> = { svg: 'SVG image', png: 'PNG image' };
 
 /** Last known state of an open editor; read by integration tests through the testing API. */
 export interface BpmnEditorState {
@@ -99,6 +107,44 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
     }
     this.pendingReveals.set(uri.toString(), elementId);
     await vscode.commands.executeCommand('vscode.openWith', uri, BPMN_VIEW_TYPE);
+  }
+
+  /**
+   * Exports the diagram shown for `documentUri` as an image. Asks where to save it unless
+   * `target` is given (tests, other commands). Returns the written file.
+   */
+  async exportImage(
+    format: ImageFormat,
+    documentUri: vscode.Uri,
+    target?: vscode.Uri,
+  ): Promise<vscode.Uri | undefined> {
+    const editor = this.editors.get(documentUri.toString())?.values().next().value;
+    if (!editor) {
+      void vscode.window.showWarningMessage('Open the diagram in Bizmo to export it.');
+      return undefined;
+    }
+    const destination =
+      target ??
+      (await vscode.window.showSaveDialog({
+        defaultUri: defaultExportUri(documentUri, format),
+        filters: { [FORMAT_NAME[format]]: [format] },
+        saveLabel: 'Export',
+        title: `Export Diagram as ${format.toUpperCase()}`,
+      }));
+    if (!destination) return undefined;
+    const name = vscode.workspace.asRelativePath(documentUri);
+    try {
+      const checked = checkExportedImage(format, await editor.requestImage(format));
+      if (!checked.ok) throw new Error(`invalid image data (${checked.reason})`);
+      await vscode.workspace.fs.writeFile(destination, checked.bytes);
+      this.log.info(`${name}: exported ${format.toUpperCase()} to ${destination.fsPath}`);
+      return destination;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log.error(`${name}: export failed: ${message}`);
+      void vscode.window.showErrorMessage(`Bizmo could not export the diagram: ${message}`);
+      return undefined;
+    }
   }
 
   private lintingEnabled(): boolean {
@@ -172,11 +218,37 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
     const sync = new DocumentSync(textDocumentTarget(document));
     const post = (message: HostToWebviewMessage) => void panel.webview.postMessage(message);
     const key = document.uri.toString();
+    let nextExportId = 0;
+    const pendingExports = new Map<
+      number,
+      { resolve: (data: string) => void; reject: (error: Error) => void }
+    >();
     const handle: EditorHandle = {
       panel,
       reveal: (elementId) => {
         state.lastReveal = elementId;
         post({ type: 'reveal', elementId });
+      },
+      requestImage: (format) => {
+        if (!ready) return Promise.reject(new Error('the diagram is not ready'));
+        const requestId = nextExportId++;
+        return new Promise<string>((resolve, reject) => {
+          const timer = setTimeout(() => {
+            pendingExports.delete(requestId);
+            reject(new Error('the diagram did not provide the image in time'));
+          }, EXPORT_TIMEOUT_MS);
+          pendingExports.set(requestId, {
+            resolve: (data) => {
+              clearTimeout(timer);
+              resolve(data);
+            },
+            reject: (error) => {
+              clearTimeout(timer);
+              reject(error);
+            },
+          });
+          post({ type: 'export', requestId, format });
+        });
       },
     };
     const handles = this.editors.get(key) ?? new Set<EditorHandle>();
@@ -266,6 +338,13 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
             state.templateErrors += message.messages.length;
             for (const error of message.messages) this.log.warn(`Element template: ${error}`);
             break;
+          case 'exported': {
+            const pending = pendingExports.get(message.requestId);
+            pendingExports.delete(message.requestId);
+            if (message.ok) pending?.resolve(message.data);
+            else pending?.reject(new Error(message.error));
+            break;
+          }
           case 'lint':
             state.lintProblems = message.problems;
             this.publishDiagnostics(document, message.problems);
@@ -342,6 +421,9 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
     panel.onDidDispose(() => {
       for (const subscription of subscriptions) subscription.dispose();
       for (const done of pendingFlushes.values()) done();
+      for (const pending of pendingExports.values()) {
+        pending.reject(new Error('the diagram was closed'));
+      }
       this.states.delete(state);
       handles.delete(handle);
       if (handles.size === 0) {
@@ -375,6 +457,15 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
       platform: detectExecutionPlatform(guard.content),
     };
   }
+}
+
+/** Next to the diagram, same name, image extension; the workspace folder for untitled files. */
+function defaultExportUri(documentUri: vscode.Uri, format: ImageFormat): vscode.Uri | undefined {
+  if (documentUri.scheme === 'untitled') {
+    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+    return folder ? vscode.Uri.joinPath(folder, `diagram.${format}`) : undefined;
+  }
+  return documentUri.with({ path: `${documentUri.path.replace(/\.bpmn$/i, '')}.${format}` });
 }
 
 function textDocumentTarget(document: vscode.TextDocument): SyncTarget {

@@ -34,6 +34,9 @@ describe('isWebviewToHostMessage', () => {
     { type: 'flushed', requestId: 5 },
     { type: 'lint', problems: [] },
     { type: 'lint', problems: [problem] },
+    { type: 'exported', requestId: 1, ok: true, format: 'svg', data: '<svg/>' },
+    { type: 'exported', requestId: 1, ok: true, format: 'png', data: 'iVBORw0KGgo=' },
+    { type: 'exported', requestId: 1, ok: false, error: 'no diagram' },
   ])('accepts %j', (message) => {
     expect(isWebviewToHostMessage(message)).toBe(true);
   });
@@ -93,6 +96,25 @@ describe('isWebviewToHostMessage', () => {
       { type: 'cspViolation', directive: 'x'.repeat(LIMITS.shortText + 1), blockedURI: '' },
     ],
     ['lint without problems', { type: 'lint' }],
+    [
+      'an unknown image format',
+      { type: 'exported', requestId: 1, ok: true, format: 'pdf', data: '' },
+    ],
+    ['an export without request id', { type: 'exported', ok: true, format: 'svg', data: '' }],
+    [
+      'an export with a file name',
+      { type: 'exported', requestId: 1, ok: true, format: 'svg', data: '', path: '/etc/x' },
+    ],
+    [
+      'oversized image data',
+      {
+        type: 'exported',
+        requestId: 1,
+        ok: true,
+        format: 'svg',
+        data: 'x'.repeat(LIMITS.exportChars + 1),
+      },
+    ],
     ['an unknown severity', { type: 'lint', problems: [{ ...problem, severity: 'fatal' }] }],
     ['a problem with an extra key', { type: 'lint', problems: [{ ...problem, html: '<b>' }] }],
     ['a problem without a rule', { type: 'lint', problems: [{ ...problem, rule: undefined }] }],
@@ -126,6 +148,7 @@ describe('isHostToWebviewMessage', () => {
     { type: 'loadRejected', version: 1, reason: 'doctype', message: 'blocked' },
     { type: 'settings', linting: false },
     { type: 'reveal', elementId: 'Task_1' },
+    { type: 'export', requestId: 3, format: 'png' },
   ])('accepts %j', (message) => {
     expect(isHostToWebviewMessage(message)).toBe(true);
   });
@@ -142,6 +165,7 @@ describe('isHostToWebviewMessage', () => {
     ['a non-boolean setting', { type: 'settings', linting: 'yes' }],
     ['an unknown setting', { type: 'settings', linting: true, telemetry: true }],
     ['a non-string element id', { type: 'reveal', elementId: 3 }],
+    ['an unknown export format', { type: 'export', requestId: 3, format: 'gif' }],
     ['an oversized element id', { type: 'reveal', elementId: 'x'.repeat(LIMITS.shortText + 1) }],
   ])('rejects %s', (_label, message) => {
     expect(isHostToWebviewMessage(message)).toBe(false);

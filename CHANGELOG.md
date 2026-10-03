@@ -1,7 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 — 2026-10-03
 
+First release: the BPMN editor for Camunda 7 and Camunda 8.
+
+- Export (M7): **Export as SVG…** and **Export as PNG…**; the image data is checked before it is written.
+- Releases (M7): `.vsix` on GitHub releases with an SBOM, checksums, and a build provenance attestation; package size budget checked in CI.
 - BPMN linting (M6): Camunda Modeler's checks for the diagram's Camunda 7/8 version, shown on the diagram, in the properties panel, and in the Problems view; the rule link selects the element; setting `bizmo.bpmn.linting.enabled`.
 - Element templates (M5): Camunda 7 and 8 templates from `.camunda/element-templates/` in the workspace, applied from the properties panel or the change-type menu; reloaded when the files change; invalid templates reported in the Bizmo log while valid ones still load. Not loaded in Restricted Mode (with a one-time notice). Size limits per file and in total; remote template icons are blocked by the CSP.
 - The initial view fits the diagram clear of the palette and minimap button; the panel toggle sits on the divider so nothing covers the canvas or the bpmn.io watermark.
