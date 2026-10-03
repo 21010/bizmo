@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/@camunda/zeebe-element-templates-json-schema/resources/schema.json",
+  "name": "Broken template",
+  "id": "io.bizmo.test.broken",
+  "appliesTo": [
+    "bpmn:Task"
+  ],
+  "properties": "not-an-array"
+}

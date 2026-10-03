@@ -70,10 +70,14 @@ export class ElementTemplateService implements vscode.Disposable {
   /** Called when a BPMN editor opens: explains once why workspace templates are missing. */
   async noticeRestrictedMode(): Promise<void> {
     if (vscode.workspace.isTrusted || this.restrictedNoticeShown) return;
+    // Claimed before awaiting, so editors opening at the same time show it once.
+    this.restrictedNoticeShown = true;
     // Listing names is fine in Restricted Mode; the files are not read.
     const found = await vscode.workspace.findFiles(TEMPLATE_GLOB, EXCLUDE, 1);
-    if (found.length === 0 || this.restrictedNoticeShown) return;
-    this.restrictedNoticeShown = true;
+    if (found.length === 0) {
+      this.restrictedNoticeShown = false;
+      return;
+    }
     this.log.info('Restricted Mode: element templates in this workspace are not loaded');
     const choice = await vscode.window.showInformationMessage(
       'Element templates in this workspace are not loaded in Restricted Mode.',
@@ -89,7 +93,11 @@ export class ElementTemplateService implements vscode.Disposable {
       return;
     }
     try {
-      const uris = await vscode.workspace.findFiles(TEMPLATE_GLOB, EXCLUDE, TEMPLATE_LIMITS.templates);
+      const uris = await vscode.workspace.findFiles(
+        TEMPLATE_GLOB,
+        EXCLUDE,
+        TEMPLATE_LIMITS.templates,
+      );
       uris.sort((a, b) => a.path.localeCompare(b.path));
       const files: TemplateFile[] = [];
       const errors: string[] = [];
@@ -102,7 +110,10 @@ export class ElementTemplateService implements vscode.Disposable {
             errors.push(`${path}: skipped, larger than ${TEMPLATE_LIMITS.fileBytes / 1024} KB`);
             continue;
           }
-          files.push({ path, text: new TextDecoder().decode(await vscode.workspace.fs.readFile(uri)) });
+          files.push({
+            path,
+            text: new TextDecoder().decode(await vscode.workspace.fs.readFile(uri)),
+          });
         } catch (error) {
           errors.push(`${path}: ${String(error)}`);
         }

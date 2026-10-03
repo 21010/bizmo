@@ -1,0 +1,31 @@
+{
+  "$schema": "https://unpkg.com/@camunda/zeebe-element-templates-json-schema/resources/schema.json",
+  "name": "Send notification",
+  "id": "io.bizmo.test.notify",
+  "version": 1,
+  "appliesTo": [
+    "bpmn:Task"
+  ],
+  "elementType": {
+    "value": "bpmn:ServiceTask"
+  },
+  "properties": [
+    {
+      "type": "Hidden",
+      "value": "notify",
+      "binding": {
+        "type": "zeebe:taskDefinition",
+        "property": "type"
+      }
+    },
+    {
+      "label": "Channel",
+      "type": "String",
+      "value": "email",
+      "binding": {
+        "type": "zeebe:taskHeader",
+        "key": "channel"
+      }
+    }
+  ]
+}
