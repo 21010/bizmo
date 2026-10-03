@@ -88,12 +88,63 @@ function canvasOf(instance: Modeler): Canvas {
 function persistViewbox(): void {
   if (!modeler) return;
   const { x, y, width, height } = canvasOf(modeler).viewbox();
-  updateState({ viewbox: { x, y, width, height } } satisfies PersistedState);
+  const viewbox = { x, y, width, height };
+  // A hidden canvas reports a meaningless viewbox; keep the last good one.
+  if (isUsableViewbox(viewbox)) updateState({ viewbox } satisfies PersistedState);
 }
 
 function savedViewbox(): Viewbox | undefined {
   const state = getState() as PersistedState | undefined;
   return state?.viewbox;
+}
+
+const isUsableViewbox = (box: Viewbox | undefined): box is Viewbox =>
+  box !== undefined &&
+  [box.x, box.y, box.width, box.height].every(Number.isFinite) &&
+  box.width > 0 &&
+  box.height > 0;
+
+let pendingFit: ResizeObserver | undefined;
+
+/**
+ * Restores the previous viewport or fits the diagram. Never fails the import: a zero-sized canvas
+ * (hidden or very narrow editor) makes diagram-js compute non-finite scales, so fitting waits
+ * until the canvas has a size.
+ */
+function showViewport(instance: Modeler, previous: Viewbox | undefined): void {
+  pendingFit?.disconnect();
+  pendingFit = undefined;
+  const canvas = canvasOf(instance);
+  const container = canvasHost.firstElementChild ?? canvasHost;
+  const apply = () => {
+    try {
+      if (isUsableViewbox(previous)) {
+        canvas.viewbox({
+          x: previous.x,
+          y: previous.y,
+          width: previous.width,
+          height: previous.height,
+        });
+      } else {
+        canvas.zoom('fit-viewport');
+      }
+    } catch (error) {
+      post({ type: 'log', level: 'warn', message: bounded(`Viewport: ${String(error)}`) });
+    }
+  };
+  const hasSize = () => container.clientWidth > 0 && container.clientHeight > 0;
+  if (hasSize()) {
+    apply();
+    return;
+  }
+  pendingFit = new ResizeObserver(() => {
+    if (!hasSize()) return;
+    pendingFit?.disconnect();
+    pendingFit = undefined;
+    instance.get<Canvas>('canvas', true).resized();
+    apply();
+  });
+  pendingFit.observe(container);
 }
 
 /** Typed as strings, but bpmn-js reports import warnings as Error objects at runtime. */
@@ -114,17 +165,7 @@ async function render(
   importing = true;
   try {
     const { warnings } = await instance.importXML(message.content);
-    const canvas = canvasOf(instance);
-    if (previous) {
-      canvas.viewbox({
-        x: previous.x,
-        y: previous.y,
-        width: previous.width,
-        height: previous.height,
-      });
-    } else {
-      canvas.zoom('fit-viewport');
-    }
+    showViewport(instance, previous);
     const registry = instance.get<ElementRegistry>('elementRegistry', true);
     const stillThere = selected.flatMap((id) => {
       const element = registry.get(id) as DiagramElement | undefined;

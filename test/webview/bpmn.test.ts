@@ -116,6 +116,29 @@ describe('BPMN viewer webview', () => {
     expect((await w.posted()).some((m) => m.type === 'importResult')).toBe(false);
   });
 
+  it.each([0, 200, 400])(
+    'imports in a %ipx-wide editor and shows the diagram once there is room',
+    async (width) => {
+      const w = await open();
+      await w.page.setViewportSize({ width: Math.max(width, 1), height: 600 });
+      await w.send({ type: 'init', content: fixture('c8-order.bpmn'), version: 1, platform: 'c8' });
+      expect(await w.waitForImport(1)).toMatchObject({ ok: true });
+
+      await w.page.setViewportSize({ width: 1200, height: 800 });
+      await expect
+        .poll(() =>
+          w.page
+            .locator('[data-element-id="Task_Check"]')
+            .first()
+            .evaluate((e) => {
+              const box = e.getBoundingClientRect();
+              return box.width > 0 && box.left >= 0 && box.right <= window.innerWidth;
+            }),
+        )
+        .toBe(true);
+    },
+  );
+
   it('keeps the viewport on update and restores it from saved state', async () => {
     const w = await open();
     await w.send({ type: 'init', content: fixture('c8-order.bpmn'), version: 1, platform: 'c8' });

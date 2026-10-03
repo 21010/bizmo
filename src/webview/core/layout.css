@@ -3,7 +3,8 @@
 .bizmo-layout {
   --bizmo-panel-width: 320px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 4px var(--bizmo-panel-width);
+  /* The panel never takes more than 60% of the editor, so narrow columns keep a usable canvas. */
+  grid-template-columns: minmax(0, 1fr) 4px min(var(--bizmo-panel-width), 60%);
   height: 100%;
 }
 
