@@ -137,6 +137,32 @@ describe('properties panel', () => {
   });
 });
 
+describe('colors', () => {
+  it("keeps Bizmo's own colors on the canvas whatever the VS Code theme; the panel follows it", async () => {
+    const w = await open('c8-order.bpmn', 'c8');
+    // A high-contrast-like theme: white foreground, unusual font.
+    await w.page.evaluate(() => {
+      document.documentElement.style.setProperty('--vscode-foreground', '#ffffff');
+      document.documentElement.style.setProperty('--vscode-sideBar-foreground', '#ffffff');
+      document.documentElement.style.setProperty('--vscode-font-family', 'Courier New');
+    });
+    await select(w, 'Task_Check');
+    const style = (selector: string) =>
+      w.page
+        .locator(selector)
+        .first()
+        .evaluate((e) => {
+          const computed = getComputedStyle(e);
+          return { color: computed.color, font: computed.fontFamily };
+        });
+
+    const canvasText = { color: 'rgb(34, 36, 42)', font: 'Arial, sans-serif' };
+    expect(await style('.djs-minimap .toggle')).toEqual(canvasText);
+    expect(await style('.djs-context-pad .entry')).toMatchObject({ color: canvasText.color });
+    expect((await style('.bio-properties-panel-header-label')).color).toBe('rgb(255, 255, 255)');
+  });
+});
+
 describe('panel layout', () => {
   it.each([1200, 700, 460])(
     'never covers the bpmn.io watermark (license requirement) at %ipx',

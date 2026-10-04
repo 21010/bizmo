@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 — 2026-10-04
+
+- The diagram keeps its own colors in every VS Code theme: the minimap button, context pad icons, and menus on the canvas no longer take the theme's text color and font (they were invisible in high-contrast themes and faint in dark ones).
+
 ## 1.0.0 — 2026-10-03
 
 First release: the BPMN editor for Camunda 7 and Camunda 8.

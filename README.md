@@ -43,7 +43,7 @@ gh attestation verify bizmo-<version>.vsix --repo 21010/bizmo
 - **Open as Text** (editor title bar, or right-click the file in the Explorer) switches to the XML; **Open Diagram** switches back. Both replace the current tab.
 - The execution platform (Camunda 7 or 8) is read from the file; files without that information are treated as Camunda 8.
 - Files that cannot be displayed (invalid XML, not BPMN, too large, or containing a `DOCTYPE`) show the reason and an **Open as Text** button. The size limit is the `bizmo.maxFileSizeMB` setting (default 10).
-- The diagram canvas is light in every color theme for now; the properties panel follows the VS Code theme.
+- The diagram keeps Bizmo's own colors (a light canvas with the standard BPMN colors) in every VS Code color theme, including dark and high contrast; the properties panel follows the VS Code theme.
 - Known limitation: a file opened in the first moments after VS Code starts may open as text, before VS Code has registered Bizmo's editor. Use **Open Diagram**.
 
 ## Security
