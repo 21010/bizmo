@@ -15,10 +15,17 @@ body {
   height: 100%;
 }
 
-/* Diagrams render on a light canvas in every theme; theme-aware rendering is planned for M7. */
+/* The diagram keeps Bizmo's own colors in every VS Code theme: a light canvas with the modeler's
+   default colors. Nothing inside it inherits the theme's foreground, font, or color scheme
+   (otherwise light or dark theme text would land on the light canvas, e.g. invisible context pad
+   icons in high contrast). The properties panel follows the theme. */
 .bizmo-canvas {
   height: 100%;
+  color-scheme: light;
   background: #ffffff;
+  color: #22242a;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
 }
 
 .bizmo-overlay {
