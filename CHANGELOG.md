@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 — 2026-10-07
 
 - DMN editor for Camunda 7 and Camunda 8 (ADR 0014):
   - `.dmn` files open as decision requirements diagrams, decision tables, and literal expressions, with Camunda properties in the DRD.
