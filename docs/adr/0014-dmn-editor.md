@@ -39,7 +39,7 @@ What DMN brings that BPMN did not:
 
 1. **Modeler: `camunda-dmn-js`.** Camunda 7 or 8 is chosen from `modeler:executionPlatform` on `dmn:definitions`, with the shared detection (`shared/camunda/platform.ts`). Files without it are treated as Camunda 8, as for BPMN. As in BPMN, `disableAdjustOrigin` is set, so saving never moves elements (ADR 0008).
 2. **Properties panel: included**, in the DRD view only, in the same split pane as BPMN. In table and expression views the panel area is hidden. It costs no extra work: it ships with the distribution.
-3. **No DMN linting in version 1**, as in Camunda Modeler. To revisit when Camunda adds DMN checks, or on demand with `dmnlint`. ADR 0013's design (lint in the webview, diagnostics on the host) applies unchanged.
+3. **No DMN linting in version 1**, as in Camunda Modeler; tracked in #17. To revisit when Camunda adds DMN checks, or on demand with `dmnlint`. ADR 0013's design (lint in the webview, diagnostics on the host) applies unchanged.
 4. **Older DMN versions: option 2.** The webview migrates DMN 1.1/1.2 with `@bpmn-io/dmn-migrate` before import and shows a notice: "This file uses DMN 1.x. Your first change saves it as DMN 1.3." The text document is not touched until the user changes the model. Undo then restores the original file in one step.
 5. **Change sync.** The notation subscribes to `commandStack.changed` of every viewer from `viewer.created`. Changes made during an import do not count. The core's edit sync, undo routing and pre-save flush (ADR 0007, 0011, 0012) apply unchanged. Typing in a table cell is a model change like any other. Ctrl+Z inside a cell is VS Code's undo, as in BPMN's FEEL fields.
 6. **Views.**
