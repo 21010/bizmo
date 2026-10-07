@@ -1,0 +1,16 @@
+/* DMN modeler styles. The icon font is loaded from files (dmn.css), not as a data: URI
+   (dmn-embedded.css, imported by base-modeler.css), so the CSP needs no `font-src data:`
+   (ADR 0008). */
+@import 'camunda-dmn-js/dist/assets/diagram-js.css';
+@import 'camunda-dmn-js/dist/assets/dmn-font/css/dmn.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-shared.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-drd.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-decision-table.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-decision-table-controls.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-literal-expression.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-boxed-expression.css';
+@import 'camunda-dmn-js/dist/assets/dmn-js-boxed-expression-controls.css';
+@import 'camunda-dmn-js/dist/assets/properties-panel.css';
+@import '../../core/base.css';
+@import '../../core/layout.css';
+@import '../../core/properties-panel-theme.css';
