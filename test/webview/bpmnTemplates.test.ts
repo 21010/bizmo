@@ -139,10 +139,11 @@ describe('element templates', () => {
     expectedViolations = /attacker\.example/;
     webview = await openWebview(browser, 'bpmn');
     const w = webview;
-    const diagram = fixture('c8-templated.bpmn')
-      .replace('io.bizmo.test.notify', 'io.bizmo.test.remoteicon')
-      .replace('type="notify"', 'type="remote"');
-    await w.send({ type: 'templates', c7: [], c8: [template('remote-icon.c8.json')] });
+    // The canvas draws the icon stored in the diagram, so any file can carry a remote one.
+    const diagram = fixture('c8-templated.bpmn').replace(
+      'id="Task_Notify"',
+      'id="Task_Notify" zeebe:modelerTemplateIcon="https://attacker.example/leak.svg"',
+    );
     await w.send({ type: 'init', content: diagram, version: 1, platform: 'c8' });
     expect(await w.waitForImport(1)).toMatchObject({ ok: true });
     await expect
