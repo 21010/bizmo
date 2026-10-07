@@ -1,13 +1,13 @@
 # Bizmo — Business Process Modeler for VS Code
 
-> BPMN for Camunda 7 and Camunda 8 is ready: diagrams, Camunda properties, element templates, Camunda Modeler's checks, and image export. The other notations are planned. See `CHANGELOG.md`.
+> BPMN and DMN for Camunda 7 and Camunda 8 are ready. BPMN has diagrams, Camunda properties, element templates, Camunda Modeler's checks, and image export. DMN has decision requirements diagrams, decision tables, literal expressions, Camunda properties, and image export. The other notations are planned. See `CHANGELOG.md`.
 
 Model business processes next to your code, with a secure graphical editor for each notation:
 
 | Notation                                                 | Files                             | Status      |
 | -------------------------------------------------------- | --------------------------------- | ----------- |
 | BPMN 2.0 — Camunda 7 and Camunda 8                       | `*.bpmn`                          | Ready (1.0) |
-| DMN — Camunda 7 and Camunda 8                            | `*.dmn`                           | Planned     |
+| DMN 1.3 — Camunda 7 and Camunda 8                        | `*.dmn`                           | Ready (1.1) |
 | Camunda Forms                                            | `*.form`                          | Planned     |
 | Value Stream Mapping (Lean)                              | `*.vsm.json`                      | Planned     |
 | SIPOC and swimlane flowcharts                            | `*.sipoc.json`, `*.swimlane.json` | Planned     |
@@ -45,6 +45,19 @@ gh attestation verify bizmo-<version>.vsix --repo 21010/bizmo
 - Files that cannot be displayed (invalid XML, not BPMN, too large, or containing a `DOCTYPE`) show the reason and an **Open as Text** button. The size limit is the `bizmo.maxFileSizeMB` setting (default 10).
 - The diagram keeps Bizmo's own colors (a light canvas with the standard BPMN colors) in every VS Code color theme, including dark and high contrast; the properties panel follows the VS Code theme.
 - Known limitation: a file opened in the first moments after VS Code starts may open as text, before VS Code has registered Bizmo's editor. Use **Open Diagram**.
+
+## Using the DMN editor
+
+- **New diagram:** File → New File… → "DMN Diagram (Camunda 8)" or "(Camunda 7)", or the commands **Bizmo: New DMN Diagram**. A new diagram has one decision with an empty decision table.
+- Open a `.dmn` file: it shows the decision requirements diagram (DRD). The icon in the corner of a decision opens its **decision table** or **literal expression**. **View DRD** goes back.
+- **Properties panel** (right, in the DRD): Camunda 8 or Camunda 7 properties of the selected element, as in the BPMN editor. Decision tables and expressions use the full width; the panel comes back in the DRD with its size and collapsed state kept.
+- **Decision tables:** click a cell to edit it. Tab and Shift+Tab move along the row; Enter and Shift+Enter move to the next and previous rule. Each pause while typing is one undo step.
+- **Undo/Redo, save, Revert File, and side-by-side text editing** work as in the BPMN editor, also from inside a table cell. After an undo or a redo, wait a moment before typing (#18).
+- The open view (DRD, table, or expression) and the DRD's zoom and scroll position are kept when you switch tabs and when the file changes.
+- **DMN 1.1 and 1.2 files** (older Camunda 7 projects) are shown as DMN 1.3, with a notice. The file is not changed by opening it; your first change saves it as DMN 1.3, and one undo restores the original.
+- **Export:** **Export as SVG…** and **Export as PNG…** save an image of the DRD. With a decision table or expression open, switch to the DRD first. Files without a DRD layout (DMN 1.1 files often have none) cannot be exported as an image.
+- DMN files are not checked for problems yet (#17).
+- Files that cannot be displayed show the reason and an **Open as Text** button, and `bizmo.maxFileSizeMB` applies, as for BPMN.
 
 ## Security
 

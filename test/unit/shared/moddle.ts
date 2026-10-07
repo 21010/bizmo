@@ -1,6 +1,9 @@
-// Test helpers: BPMN parsing/serialisation with the same moddle packages the modelers use,
+// Test helpers: BPMN and DMN parsing/serialisation with the same moddle packages the modelers use,
 // and an order-insensitive canonical form of an XML document.
 import { BpmnModdle } from 'bpmn-moddle';
+import { DmnModdle } from 'dmn-moddle';
+import camundaDmn from 'camunda-dmn-moddle/resources/camunda.json' with { type: 'json' };
+import zeebeDmn from 'zeebe-dmn-moddle/resources/zeebe.json' with { type: 'json' };
 import { Parser } from 'saxen';
 import camunda from 'camunda-bpmn-moddle/resources/camunda.json' with { type: 'json' };
 import zeebe from 'zeebe-bpmn-moddle/resources/zeebe.json' with { type: 'json' };
@@ -27,6 +30,23 @@ export async function parseBpmn(
   const { rootElement, warnings } = await moddle(xml).fromXML(xml, 'bpmn:Definitions');
   return {
     definitions: rootElement as unknown as Definitions,
+    warnings: warnings.map((w: { message: string }) => w.message),
+  };
+}
+
+interface DmnDefinitions extends ParsedElement {
+  drgElement: (ParsedElement & { $type: string })[];
+}
+
+/** DMN with the descriptor camunda-dmn-js uses for the file's platform. */
+export async function parseDmn(
+  xml: string,
+): Promise<{ definitions: DmnDefinitions; warnings: string[] }> {
+  const extensions =
+    detectExecutionPlatform(xml) === 'c7' ? { camunda: camundaDmn } : { zeebe: zeebeDmn };
+  const { rootElement, warnings } = await DmnModdle(extensions).fromXML(xml, 'dmn:Definitions');
+  return {
+    definitions: rootElement as unknown as DmnDefinitions,
     warnings: warnings.map((w: { message: string }) => w.message),
   };
 }

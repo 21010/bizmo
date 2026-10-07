@@ -116,3 +116,27 @@ export async function openWebview(
 }
 
 export const fixture = (name: string): string => readFileSync(`test/fixtures/bpmn/${name}`, 'utf8');
+export const dmnFixture = (name: string): string =>
+  readFileSync(`test/fixtures/dmn/${name}`, 'utf8');
+
+/**
+ * Answers every edit the webview posts with `applied` and the next document version, like the host
+ * after a successful edit. Without it, the webview holds back later changes (one edit in flight).
+ */
+export async function applyEditsLikeTheHost(webview: WebviewPage, version = 1): Promise<void> {
+  await webview.page.evaluate((start) => {
+    let current = start;
+    const push = window.__posted.push.bind(window.__posted);
+    window.__posted.push = (...messages) => {
+      for (const message of messages) {
+        if (message.type !== 'edit') continue;
+        current += 1;
+        const answer = { type: 'editResult', outcome: 'applied', version: current };
+        setTimeout(() => {
+          window.postMessage(answer, '*');
+        }, 5);
+      }
+      return push(...messages);
+    };
+  }, version);
+}

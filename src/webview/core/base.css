@@ -12,7 +12,43 @@ body {
 
 #app {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 100%;
+}
+
+/* notice.ts: information above the editor, in the layout (never over the canvas). */
+.bizmo-notice {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 12px;
+  border-bottom: 1px solid var(--vscode-inputValidation-infoBorder, var(--vscode-focusBorder));
+  background: var(--vscode-inputValidation-infoBackground, var(--vscode-editor-background));
+  color: var(--vscode-inputValidation-infoForeground, var(--vscode-foreground));
+}
+
+.bizmo-notice span {
+  flex: 1;
+}
+
+.bizmo-notice button {
+  padding: 0 6px;
+  border: none;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 1.2em;
+  cursor: pointer;
+}
+
+.bizmo-notice button:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.bizmo-notice button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
 }
 
 /* The diagram keeps Bizmo's own colors in every VS Code theme: a light canvas with the modeler's

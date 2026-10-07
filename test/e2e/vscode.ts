@@ -86,8 +86,15 @@ export async function launchVsCode(options: {
 
 export const dirtyTabs = (win: Page) => win.locator('.tabs-container .tab.dirty').count();
 
-/** Opens a file from the Explorer and returns the webview frame showing the diagram. */
-export async function openFromExplorer(win: Page, name: string): Promise<Frame> {
+/**
+ * Opens a file from the Explorer and returns the webview frame showing the diagram, recognised by
+ * `ready` (default: a diagram canvas).
+ */
+export async function openFromExplorer(
+  win: Page,
+  name: string,
+  ready = '.djs-container',
+): Promise<Frame> {
   const item = win.getByRole('treeitem', { name });
   await item.waitFor();
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -96,7 +103,7 @@ export async function openFromExplorer(win: Page, name: string): Promise<Frame> 
       for (const frame of win.frames()) {
         if (
           await frame
-            .locator('.djs-container')
+            .locator(ready)
             .count()
             .catch(() => 0)
         )
