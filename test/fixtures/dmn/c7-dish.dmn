@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_Dish_C7" name="Dish" namespace="http://camunda.org/schema/1.0/dmn" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.22.0">
+  <decision id="Decision_Dish" name="Dish">
+    <informationRequirement id="IR_Season">
+      <requiredDecision href="#Decision_Season" />
+    </informationRequirement>
+    <decisionTable id="DecisionTable_Dish" hitPolicy="UNIQUE">
+      <input id="Input_Season" label="Season">
+        <inputExpression id="InputExpression_Season" typeRef="string">
+          <text>season</text>
+        </inputExpression>
+      </input>
+      <input id="Input_Guests" label="Guests">
+        <inputExpression id="InputExpression_Guests" typeRef="number">
+          <text>guestCount</text>
+        </inputExpression>
+      </input>
+      <output id="Output_Dish" label="Dish" name="dish" typeRef="string" />
+      <rule id="Rule_Winter">
+        <inputEntry id="InputEntry_Winter_Season">
+          <text>"Winter"</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Winter_Guests">
+          <text>&lt;= 8</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Winter">
+          <text>"Spareribs"</text>
+        </outputEntry>
+      </rule>
+      <rule id="Rule_Summer">
+        <inputEntry id="InputEntry_Summer_Season">
+          <text>"Summer"</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Summer_Guests">
+          <text>&gt; 8</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Summer">
+          <text>"Salad"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <decision id="Decision_Season" name="Season">
+    <variable id="Variable_Season" name="season" typeRef="string" />
+    <literalExpression id="LiteralExpression_Season">
+      <text>if month &lt; 4 then "Winter" else "Summer"</text>
+    </literalExpression>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_Dish">
+      <dmndi:DMNShape id="DMNShape_Dish" dmnElementRef="Decision_Dish">
+        <dc:Bounds height="80" width="180" x="160" y="100" />
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_Season" dmnElementRef="Decision_Season">
+        <dc:Bounds height="80" width="180" x="160" y="280" />
+      </dmndi:DMNShape>
+      <dmndi:DMNEdge id="DMNEdge_IR_Season" dmnElementRef="IR_Season">
+        <di:waypoint x="250" y="280" />
+        <di:waypoint x="250" y="180" />
+      </dmndi:DMNEdge>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

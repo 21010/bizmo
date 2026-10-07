@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20180521/MODEL/" xmlns:dmndi="http://www.omg.org/spec/DMN/20180521/DMNDI/" xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/" id="definitions_dish12" name="Dish" namespace="http://camunda.org/schema/1.0/dmn">
+  <decision id="decision_dish12" name="Dish">
+    <decisionTable id="decisionTable_dish12">
+      <input id="input_season12" label="Season">
+        <inputExpression id="inputExpression_season12" typeRef="string">
+          <text>season</text>
+        </inputExpression>
+      </input>
+      <output id="output_dish12" label="Dish" name="desiredDish" typeRef="string" />
+      <rule id="rule_winter12">
+        <inputEntry id="inputEntry_winter12">
+          <text>"Winter"</text>
+        </inputEntry>
+        <outputEntry id="outputEntry_winter12">
+          <text>"Roastbeef"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_dish12">
+      <dmndi:DMNShape id="DMNShape_dish12" dmnElementRef="decision_dish12">
+        <dc:Bounds height="80" width="180" x="160" y="100" />
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>

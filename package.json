@@ -53,6 +53,16 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "bizmo.dmn",
+        "displayName": "Bizmo DMN Modeler",
+        "selector": [
+          {
+            "filenamePattern": "*.dmn"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "commands": [
@@ -233,10 +243,13 @@
     "serialize-javascript": "7.1.2"
   },
   "dependencies": {
+    "@bpmn-io/dmn-migrate": "0.7.1",
     "@camunda/linting": "4.1.0",
     "bpmn-js": "18.31.0",
     "bpmn-js-properties-panel": "5.65.1",
     "camunda-bpmn-js": "5.36.0",
-    "diagram-js": "15.28.0"
+    "camunda-dmn-js": "3.8.3",
+    "diagram-js": "15.28.0",
+    "dmn-js-properties-panel": "3.12.0"
   }
 }

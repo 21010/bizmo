@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/DMN/20151101/dmn.xsd" id="definitions_dish" name="Dish" namespace="http://camunda.org/schema/1.0/dmn">
+  <decision id="decision_dish" name="Dish">
+    <decisionTable id="decisionTable_dish">
+      <input id="input_season" label="Season">
+        <inputExpression id="inputExpression_season" typeRef="string">
+          <text>season</text>
+        </inputExpression>
+      </input>
+      <output id="output_dish" label="Dish" name="desiredDish" typeRef="string" />
+      <rule id="rule_winter">
+        <inputEntry id="inputEntry_winter">
+          <text>"Winter"</text>
+        </inputEntry>
+        <outputEntry id="outputEntry_winter">
+          <text>"Roastbeef"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

@@ -29,7 +29,10 @@ export function bundles({ production }) {
     {
       ...common,
       // One bundle per notation: dist/webview/<notation>.js + <notation>.css (+ font/image files).
-      entryPoints: { bpmn: 'src/webview/notations/bpmn/main.ts' },
+      entryPoints: {
+        bpmn: 'src/webview/notations/bpmn/main.ts',
+        dmn: 'src/webview/notations/dmn/main.ts',
+      },
       outdir: 'dist/webview',
       platform: 'browser',
       format: 'iife',

@@ -9,6 +9,7 @@ import {
   type BpmnEditorState,
 } from './notations/bpmn/bpmnEditorProvider';
 import { ElementTemplateService } from './notations/bpmn/elementTemplateService';
+import { DMN_VIEW_TYPE, DmnEditorProvider } from './notations/dmn/dmnEditorProvider';
 
 /** Returned from `activate` only in test mode, so integration tests can observe editor state. */
 export interface TestingApi {
@@ -21,12 +22,17 @@ export function activate(context: vscode.ExtensionContext): { testing: TestingAp
   const log = vscode.window.createOutputChannel('Bizmo', { log: true });
   const templates = new ElementTemplateService(log);
   const bpmn = new BpmnEditorProvider(context.extensionUri, log, templates);
+  const dmn = new DmnEditorProvider(context.extensionUri, log);
 
   context.subscriptions.push(
     log,
     templates,
     bpmn,
     vscode.window.registerCustomEditorProvider(BPMN_VIEW_TYPE, bpmn, {
+      webviewOptions: { retainContextWhenHidden: false },
+      supportsMultipleEditorsPerDocument: true,
+    }),
+    vscode.window.registerCustomEditorProvider(DMN_VIEW_TYPE, dmn, {
       webviewOptions: { retainContextWhenHidden: false },
       supportsMultipleEditorsPerDocument: true,
     }),
