@@ -1,24 +1,18 @@
 import * as vscode from 'vscode';
-import { detectExecutionPlatform } from '../../../shared/bpmn/platform';
 import {
-  isWebviewToHostMessage,
   LIMITS,
-  type EditOutcome,
-  type HostToWebviewMessage,
   type ImageFormat,
-  type ImportResult,
   type LintProblem,
   type LintSeverity,
-  type LoadRejection,
 } from '../../../shared/protocol';
-import { DocumentSync, type SyncTarget } from '../../core/documentSync';
-import { checkXmlDocument } from '../../core/guards';
-import { checkExportedImage } from '../../core/imageExport';
+import {
+  EditorSession,
+  initialEditorState,
+  xmlDocumentMessage,
+  type EditorState,
+} from '../../core/editorSession';
 import type { ElementTemplateService } from './elementTemplateService';
 import { locateElementIds } from './lintLocations';
-import { reopenWith, TEXT_EDITOR } from '../../core/reopen';
-import { renderWebviewHtml } from '../../core/webviewHtml';
-import { createNonce } from '../../security/nonce';
 
 export const BPMN_VIEW_TYPE = 'bizmo.bpmn';
 /** Selects a lint problem's element in the diagram; the link on each Bizmo diagnostic. */
@@ -31,27 +25,8 @@ const SEVERITY: Record<LintSeverity, vscode.DiagnosticSeverity> = {
   info: vscode.DiagnosticSeverity.Information,
 };
 
-/** An open diagram editor, as far as other editors and commands need it. */
-interface EditorHandle {
-  panel: vscode.WebviewPanel;
-  reveal(elementId: string): void;
-  /** SVG markup or PNG base64 from the webview (not yet checked). */
-  requestImage(format: ImageFormat): Promise<string>;
-}
-
-/** How long a save waits for the webview to hand over pending changes. */
-const FLUSH_TIMEOUT_MS = 2000;
-/** How long an export waits for the image (large PNGs take a few seconds). */
-const EXPORT_TIMEOUT_MS = 30000;
-
-const FORMAT_NAME: Record<ImageFormat, string> = { svg: 'SVG image', png: 'PNG image' };
-
-/** Last known state of an open editor; read by integration tests through the testing API. */
-export interface BpmnEditorState {
-  uri: string;
-  lastImport?: ImportResult;
-  rejected?: LoadRejection;
-  edits: Record<EditOutcome, number>;
+/** Last known state of an open BPMN editor; read by integration tests through the testing API. */
+export interface BpmnEditorState extends EditorState {
   /** Number of element templates last sent to the webview, per platform. */
   templatesSent?: { c7: number; c8: number };
   templateErrors: number;
@@ -59,19 +34,19 @@ export interface BpmnEditorState {
   lintProblems?: LintProblem[];
   /** Element last revealed from a lint problem's link. */
   lastReveal?: string;
-  cspViolations: number;
-  droppedMessages: number;
 }
 
+type BpmnSession = EditorSession<BpmnEditorState>;
+
 /**
- * BPMN modeler as a text-backed custom editor (ADR 0007). The TextDocument is the source of
- * truth: the webview proposes full-document edits, VS Code owns undo/redo, save, and backup.
+ * BPMN modeler as a text-backed custom editor (ADR 0007) on the shared editor session, plus
+ * element templates (ADR 0010) and linting with VS Code diagnostics (ADR 0013).
  */
 export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vscode.Disposable {
   readonly states = new Set<BpmnEditorState>();
   private readonly diagnostics = vscode.languages.createDiagnosticCollection('bizmo');
   /** Open diagram editors per document URI (several editors per document are possible). */
-  private readonly editors = new Map<string, Set<EditorHandle>>();
+  private readonly editors = new Map<string, Set<BpmnSession>>();
   /** Elements to reveal once a diagram opened by `showProblem` has rendered. */
   private readonly pendingReveals = new Map<string, string>();
 
@@ -99,10 +74,10 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
       return;
     }
     if (!this.diagnostics.has(uri)) return;
-    const editor = this.editors.get(uri.toString())?.values().next().value;
-    if (editor) {
-      editor.panel.reveal();
-      editor.reveal(elementId);
+    const session = this.editors.get(uri.toString())?.values().next().value;
+    if (session) {
+      session.panel.reveal();
+      reveal(session, elementId);
       return;
     }
     this.pendingReveals.set(uri.toString(), elementId);
@@ -123,33 +98,12 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
     documentUri: vscode.Uri,
     target?: vscode.Uri,
   ): Promise<vscode.Uri | undefined> {
-    const editor = this.editors.get(documentUri.toString())?.values().next().value;
-    if (!editor) {
+    const session = this.editors.get(documentUri.toString())?.values().next().value;
+    if (!session) {
       void vscode.window.showWarningMessage('Open the diagram in Bizmo to export it.');
       return undefined;
     }
-    const destination =
-      target ??
-      (await vscode.window.showSaveDialog({
-        defaultUri: defaultExportUri(documentUri, format),
-        filters: { [FORMAT_NAME[format]]: [format] },
-        saveLabel: 'Export',
-        title: `Export Diagram as ${format.toUpperCase()}`,
-      }));
-    if (!destination) return undefined;
-    const name = vscode.workspace.asRelativePath(documentUri);
-    try {
-      const checked = checkExportedImage(format, await editor.requestImage(format));
-      if (!checked.ok) throw new Error(`invalid image data (${checked.reason})`);
-      await vscode.workspace.fs.writeFile(destination, checked.bytes);
-      this.log.info(`${name}: exported ${format.toUpperCase()} to ${destination.fsPath}`);
-      return destination;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.log.error(`${name}: export failed: ${message}`);
-      void vscode.window.showErrorMessage(`Bizmo could not export the diagram: ${message}`);
-      return undefined;
-    }
+    return session.exportImage(format, target);
   }
 
   private lintingEnabled(): boolean {
@@ -192,235 +146,27 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
   }
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
-    const webviewRoot = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview');
-    const asset = (file: string) =>
-      panel.webview.asWebviewUri(vscode.Uri.joinPath(webviewRoot, file)).toString();
-
-    panel.webview.options = {
-      enableScripts: true,
-      enableCommandUris: false,
-      enableForms: false,
-      localResourceRoots: [webviewRoot],
-    };
-    panel.webview.html = renderWebviewHtml({
-      cspSource: panel.webview.cspSource,
-      nonce: createNonce(),
-      scriptUri: asset('bpmn.js'),
-      styleUri: asset('bpmn.css'),
-      title: 'BPMN diagram',
-    });
-
-    const name = vscode.workspace.asRelativePath(document.uri);
-    const state: BpmnEditorState = {
-      uri: document.uri.toString(),
-      edits: { applied: 0, unchanged: 0, stale: 0, failed: 0 },
-      templateErrors: 0,
-      cspViolations: 0,
-      droppedMessages: 0,
-    };
+    const key = document.uri.toString();
+    const state: BpmnEditorState = { ...initialEditorState(document.uri), templateErrors: 0 };
     this.states.add(state);
 
-    const sync = new DocumentSync(textDocumentTarget(document));
-    const post = (message: HostToWebviewMessage) => void panel.webview.postMessage(message);
-    const key = document.uri.toString();
-    let nextExportId = 0;
-    const pendingExports = new Map<
-      number,
-      { resolve: (data: string) => void; reject: (error: Error) => void }
-    >();
-    const handle: EditorHandle = {
-      panel,
-      reveal: (elementId) => {
-        state.lastReveal = elementId;
-        post({ type: 'reveal', elementId });
-      },
-      requestImage: (format) => {
-        if (!ready) return Promise.reject(new Error('the diagram is not ready'));
-        const requestId = nextExportId++;
-        return new Promise<string>((resolve, reject) => {
-          const timer = setTimeout(() => {
-            pendingExports.delete(requestId);
-            reject(new Error('the diagram did not provide the image in time'));
-          }, EXPORT_TIMEOUT_MS);
-          pendingExports.set(requestId, {
-            resolve: (data) => {
-              clearTimeout(timer);
-              resolve(data);
-            },
-            reject: (error) => {
-              clearTimeout(timer);
-              reject(error);
-            },
-          });
-          post({ type: 'export', requestId, format });
-        });
-      },
-    };
-    const handles = this.editors.get(key) ?? new Set<EditorHandle>();
-    handles.add(handle);
-    this.editors.set(key, handles);
-    let ready = false;
-    /** Edits are applied one at a time, in arrival order. */
-    let editQueue = Promise.resolve();
-    let nextFlushId = 0;
-    const pendingFlushes = new Map<number, () => void>();
-
-    const sendDocument = (kind: 'init' | 'update') => {
-      if (!ready) return;
-      const message = this.documentMessage(document, kind);
-      state.rejected = message.type === 'loadRejected' ? message.reason : undefined;
-      if (message.type === 'loadRejected') {
-        this.log.warn(`${name}: not loaded (${message.reason})`);
-        this.diagnostics.delete(document.uri);
-        this.pendingReveals.delete(key);
-      }
-      post(message);
-    };
-
     const sendSettings = () => {
-      if (!ready) return;
-      post({ type: 'settings', linting: this.lintingEnabled() });
+      session.post({ type: 'settings', linting: this.lintingEnabled() });
     };
-
     /** Element templates for both platforms; the webview applies the ones for the diagram. */
     const sendTemplates = () => {
-      if (!ready) return;
+      if (!session.isReady) return;
       const { c7, c8 } = this.templates.current();
       state.templatesSent = { c7: c7.length, c8: c8.length };
-      post({ type: 'templates', c7, c8 });
+      session.post({ type: 'templates', c7, c8 });
     };
-
-    const handleEdit = async (content: string, baseVersion: number, requestId?: number) => {
-      const outcome = await sync.applyEdit(content, baseVersion);
-      state.edits[outcome] += 1;
-      post({ type: 'editResult', outcome, version: document.version });
-      if (outcome === 'stale') {
-        this.log.info(`${name}: diagram change superseded by a newer document change`);
-        sendDocument('update');
-      } else if (outcome === 'failed') {
-        this.log.error(`${name}: VS Code rejected the diagram change`);
-        void vscode.window.showWarningMessage(
-          `Bizmo could not apply the last diagram change to ${name}. The diagram was reloaded from the file.`,
-        );
-        sendDocument('update');
-      }
-      if (requestId !== undefined) pendingFlushes.get(requestId)?.();
-    };
-
-    /** Asks the webview for pending changes and waits until they are in the document. */
-    const flush = (): Promise<void> => {
-      if (!ready) return Promise.resolve();
-      const requestId = nextFlushId++;
-      return new Promise<void>((resolve) => {
-        const done = () => {
-          clearTimeout(timer);
-          pendingFlushes.delete(requestId);
-          resolve();
-        };
-        const timer = setTimeout(() => {
-          this.log.warn(`${name}: the diagram did not confirm pending changes before saving`);
-          done();
-        }, FLUSH_TIMEOUT_MS);
-        pendingFlushes.set(requestId, done);
-        post({ type: 'flush', requestId });
-      });
+    /** Problems and pending reveals belong to a rendered diagram. */
+    const forgetDiagram = () => {
+      this.diagnostics.delete(document.uri);
+      this.pendingReveals.delete(key);
     };
 
     const subscriptions = [
-      panel.webview.onDidReceiveMessage((message: unknown) => {
-        if (!isWebviewToHostMessage(message)) {
-          state.droppedMessages += 1;
-          this.log.warn(`${name}: dropped an invalid message from the webview`);
-          return;
-        }
-        switch (message.type) {
-          case 'ready':
-            ready = true;
-            sendSettings();
-            sendDocument('init');
-            sendTemplates();
-            break;
-          case 'templateErrors':
-            state.templateErrors += message.messages.length;
-            for (const error of message.messages) this.log.warn(`Element template: ${error}`);
-            break;
-          case 'exported': {
-            const pending = pendingExports.get(message.requestId);
-            pendingExports.delete(message.requestId);
-            if (message.ok) pending?.resolve(message.data);
-            else pending?.reject(new Error(message.error));
-            break;
-          }
-          case 'lint':
-            state.lintProblems = message.problems;
-            this.publishDiagnostics(document, message.problems);
-            break;
-          case 'edit':
-            editQueue = editQueue
-              .then(() => handleEdit(message.content, message.baseVersion, message.requestId))
-              .catch((error: unknown) => {
-                this.log.error(`${name}: ${String(error)}`);
-                // Every edit is answered, or the webview would hold back all later changes.
-                post({ type: 'editResult', outcome: 'failed', version: document.version });
-                sendDocument('update');
-                if (message.requestId !== undefined) pendingFlushes.get(message.requestId)?.();
-              });
-            break;
-          case 'flushed':
-            pendingFlushes.get(message.requestId)?.();
-            break;
-          case 'importResult':
-            state.lastImport = message;
-            if (message.ok) {
-              this.log.info(
-                `${name}: rendered ${message.elementCount} elements (v${message.version})`,
-              );
-              for (const warning of message.warnings) this.log.warn(`${name}: ${warning}`);
-              const pending = this.pendingReveals.get(key);
-              if (pending !== undefined) {
-                this.pendingReveals.delete(key);
-                handle.reveal(pending);
-              }
-            } else {
-              this.log.error(`${name}: import failed: ${message.error}`);
-              this.diagnostics.delete(document.uri);
-              // A diagram that cannot be shown has no element to reveal.
-              this.pendingReveals.delete(key);
-            }
-            break;
-          case 'log':
-            this.log[message.level](`${name}: ${message.message}`);
-            break;
-          case 'cspViolation':
-            state.cspViolations += 1;
-            this.log.error(`${name}: CSP violation ${message.directive} ${message.blockedURI}`);
-            break;
-          case 'openAsText':
-            void reopenWith(document.uri, TEXT_EDITOR);
-            break;
-          case 'undo':
-          case 'redo': {
-            // Queued behind edits received earlier: the change made just before is undone.
-            // VS Code's undo/redo act on the active editor, which is this one (it has focus).
-            const command = message.type;
-            editQueue = editQueue
-              .then(async () => {
-                await vscode.commands.executeCommand(command);
-              })
-              .catch((error: unknown) => {
-                this.log.error(`${name}: ${command} failed: ${String(error)}`);
-              });
-            break;
-          }
-        }
-      }),
-      vscode.workspace.onDidChangeTextDocument((event) => {
-        if (event.document !== document || event.contentChanges.length === 0) return;
-        if (!sync.isOwnChange(document.version, document.getText())) sendDocument('update');
-      }),
-      vscode.workspace.onWillSaveTextDocument((event) => {
-        if (event.document === document) event.waitUntil(flush());
-      }),
       this.templates.onDidChange(sendTemplates),
       vscode.workspace.onDidChangeConfiguration((event) => {
         if (!event.affectsConfiguration(LINTING_SETTING)) return;
@@ -428,69 +174,63 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
         sendSettings();
       }),
     ];
-    void this.templates.noticeRestrictedMode();
 
-    panel.onDidDispose(() => {
-      for (const subscription of subscriptions) subscription.dispose();
-      for (const done of pendingFlushes.values()) done();
-      for (const pending of pendingExports.values()) {
-        pending.reject(new Error('the diagram was closed'));
-      }
-      this.states.delete(state);
-      handles.delete(handle);
-      if (handles.size === 0) {
-        // Problems are only kept up to date while a diagram editor is open.
-        this.editors.delete(key);
-        this.diagnostics.delete(document.uri);
-        this.pendingReveals.delete(key);
-      }
+    const session: BpmnSession = new EditorSession({
+      document,
+      panel,
+      extensionUri: this.extensionUri,
+      log: this.log,
+      bundle: 'bpmn',
+      title: 'BPMN diagram',
+      state,
+      load: xmlDocumentMessage,
+      hooks: {
+        beforeDocument: sendSettings,
+        afterDocument: sendTemplates,
+        rejected: forgetDiagram,
+        imported: (result) => {
+          if (!result.ok) {
+            forgetDiagram();
+            return;
+          }
+          const pending = this.pendingReveals.get(key);
+          if (pending !== undefined) {
+            this.pendingReveals.delete(key);
+            reveal(session, pending);
+          }
+        },
+        message: (message) => {
+          switch (message.type) {
+            case 'templateErrors':
+              state.templateErrors += message.messages.length;
+              for (const error of message.messages) this.log.warn(`Element template: ${error}`);
+              break;
+            case 'lint':
+              state.lintProblems = message.problems;
+              this.publishDiagnostics(document, message.problems);
+              break;
+          }
+        },
+        disposed: () => {
+          for (const subscription of subscriptions) subscription.dispose();
+          this.states.delete(state);
+          handles.delete(session);
+          if (handles.size === 0) {
+            // Problems are only kept up to date while a diagram editor is open.
+            this.editors.delete(key);
+            forgetDiagram();
+          }
+        },
+      },
     });
-  }
-
-  private documentMessage(
-    document: vscode.TextDocument,
-    kind: 'init' | 'update',
-  ): HostToWebviewMessage {
-    const maxMegabytes = vscode.workspace
-      .getConfiguration('bizmo')
-      .get<number>('maxFileSizeMB', 10);
-    const guard = checkXmlDocument(document.getText(), maxMegabytes * 1024 * 1024);
-    if (!guard.ok) {
-      return {
-        type: 'loadRejected',
-        version: document.version,
-        reason: guard.reason,
-        message: guard.message,
-      };
-    }
-    return {
-      type: kind,
-      content: guard.content,
-      version: document.version,
-      platform: detectExecutionPlatform(guard.content),
-    };
+    const handles = this.editors.get(key) ?? new Set<BpmnSession>();
+    handles.add(session);
+    this.editors.set(key, handles);
+    void this.templates.noticeRestrictedMode();
   }
 }
 
-/** Next to the diagram, same name, image extension; the workspace folder for untitled files. */
-function defaultExportUri(documentUri: vscode.Uri, format: ImageFormat): vscode.Uri | undefined {
-  if (documentUri.scheme === 'untitled') {
-    const folder = vscode.workspace.workspaceFolders?.[0]?.uri;
-    return folder ? vscode.Uri.joinPath(folder, `diagram.${format}`) : undefined;
-  }
-  return documentUri.with({ path: `${documentUri.path.replace(/\.bpmn$/i, '')}.${format}` });
-}
-
-function textDocumentTarget(document: vscode.TextDocument): SyncTarget {
-  return {
-    version: () => document.version,
-    text: () => document.getText(),
-    eol: () => (document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n'),
-    replaceAll: (text) => {
-      const edit = new vscode.WorkspaceEdit();
-      const end = document.lineAt(document.lineCount - 1).range.end;
-      edit.replace(document.uri, new vscode.Range(new vscode.Position(0, 0), end), text);
-      return Promise.resolve(vscode.workspace.applyEdit(edit));
-    },
-  };
+function reveal(session: BpmnSession, elementId: string): void {
+  session.state.lastReveal = elementId;
+  session.post({ type: 'reveal', elementId });
 }

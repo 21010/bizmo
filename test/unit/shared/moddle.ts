@@ -5,7 +5,7 @@ import { Parser } from 'saxen';
 import camunda from 'camunda-bpmn-moddle/resources/camunda.json' with { type: 'json' };
 import zeebe from 'zeebe-bpmn-moddle/resources/zeebe.json' with { type: 'json' };
 
-import { detectExecutionPlatform } from '../../../src/shared/bpmn/platform';
+import { detectExecutionPlatform } from '../../../src/shared/camunda/platform';
 
 /**
  * Like the modelers: Camunda 7 diagrams use the `camunda` descriptor, Camunda 8 the `zeebe` one.

@@ -4,8 +4,9 @@ const DEFINITIONS_START = /<(?:[\w-]+:)?definitions\b[^>]*>/;
 const EXECUTION_PLATFORM = /\bmodeler:executionPlatform\s*=\s*(["'])(.*?)\1/;
 
 /**
- * Detects the Camunda execution platform from `modeler:executionPlatform` on `bpmn:definitions`
- * (written by Camunda Desktop Modeler). Files without the attribute use the given default.
+ * Detects the Camunda execution platform from `modeler:executionPlatform` on the `definitions`
+ * element of a BPMN or DMN file (written by Camunda Desktop Modeler). Files without the attribute
+ * use the given default.
  */
 export function detectExecutionPlatform(
   xml: string,

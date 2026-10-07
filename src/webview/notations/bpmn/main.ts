@@ -9,17 +9,15 @@ import type Canvas from 'diagram-js/lib/core/Canvas';
 import type ElementRegistry from 'diagram-js/lib/core/ElementRegistry';
 import type Selection from 'diagram-js/lib/features/selection/Selection';
 import type { Element as DiagramElement } from 'diagram-js/lib/model/Types';
+import { bounded, LIMITS, type ExecutionPlatform } from '../../../shared/protocol';
+import { getState, post, updateState } from '../../core/bridge';
 import {
-  bounded,
-  LIMITS,
-  type ExecutionPlatform,
-  type HostToWebviewMessage,
-} from '../../../shared/protocol';
-import { getState, onHostMessage, post, updateState } from '../../core/bridge';
-import { EditSync } from '../../core/editSync';
-import { hideOverlay, showOverlay } from '../../core/overlay';
+  startEditor,
+  type DocumentMessage,
+  type EditorApp,
+  type Rendered,
+} from '../../core/editorApp';
 import { createSplitPane } from '../../core/splitPane';
-import { routeUndoRedoToHost } from '../../core/undoRouting';
 import { exportImage } from './imageExport';
 import { DiagramLinter } from './lint';
 
@@ -69,12 +67,7 @@ const linter = new DiagramLinter(
   },
 );
 
-const editSync = new EditSync(async () => {
-  if (!modeler) throw new Error('no diagram');
-  const { xml } = await modeler.saveXML({ format: true });
-  if (xml === undefined) throw new Error('empty diagram');
-  return xml;
-});
+let editor: EditorApp | undefined;
 
 /**
  * Creates a fresh modeler with the properties panel of the given platform. Also the recovery
@@ -114,7 +107,7 @@ function createModeler(target: ExecutionPlatform): Modeler {
   });
   instance.on('commandStack.changed', ({ trigger }: { trigger?: string }) => {
     if (importing || trigger === 'clear') return;
-    editSync.changed();
+    editor?.changed();
     linter.schedule(instance, target);
   });
   instance.on('canvas.viewbox.changed', () => {
@@ -224,9 +217,7 @@ function warningText(warning: unknown): string {
   return warning instanceof Error ? warning.message : String(warning);
 }
 
-async function render(
-  message: Extract<HostToWebviewMessage, { type: 'init' | 'update' }>,
-): Promise<void> {
+async function render(message: DocumentMessage): Promise<Rendered> {
   const instance =
     !modeler || platform !== message.platform ? createModeler(message.platform) : modeler;
   const previous = message.type === 'update' ? canvasOf(instance).viewbox() : savedViewbox();
@@ -244,94 +235,44 @@ async function render(
       return element ? [element] : [];
     });
     instance.get<Selection>('selection', true).select(stillThere);
-    editSync.rendered(message.version);
-    hideOverlay();
     linter.schedule(instance, message.platform);
-    post({
-      type: 'importResult',
-      version: message.version,
-      ok: true,
-      elementCount: registry.getAll().length,
-      warnings: warnings.slice(0, LIMITS.warnings).map((warning) => bounded(warningText(warning))),
-    });
-  } catch (error) {
-    // A failed import can leave the instance unable to import later diagrams (ADR 0008).
-    linter.clear(createModeler(message.platform));
-    editSync.rendered(message.version);
-    const detail = bounded(error instanceof Error ? error.message : String(error));
-    showOverlay('This diagram cannot be displayed', detail, [
-      {
-        label: 'Open as Text',
-        run: () => {
-          post({ type: 'openAsText' });
-        },
-      },
-    ]);
-    post({ type: 'importResult', version: message.version, ok: false, error: detail });
+    return { elementCount: registry.getAll().length, warnings: warnings.map(warningText) };
   } finally {
     importing = false;
   }
 }
 
-onHostMessage(async (message) => {
-  switch (message.type) {
-    case 'init':
-    case 'update':
-      await render(message);
-      break;
-    case 'loadRejected':
-      showOverlay(
-        message.reason === 'tooLarge'
-          ? 'This file is too large to display'
-          : 'This file was blocked',
-        message.message,
-        [
-          {
-            label: 'Open as Text',
-            run: () => {
-              post({ type: 'openAsText' });
-            },
-          },
-        ],
-      );
-      break;
-    case 'editResult':
-      editSync.result(message.outcome, message.version);
-      break;
-    case 'flush':
-      editSync.flush(message.requestId);
-      break;
-    case 'settings':
-      linter.setEnabled(message.linting, modeler, platform);
-      break;
-    case 'export': {
-      const { requestId, format } = message;
-      try {
-        if (!modeler) throw new Error('No diagram is shown');
-        const data = await exportImage(modeler, format);
-        if (data.length > LIMITS.exportChars) throw new Error('The image is too large to export');
-        post({ type: 'exported', requestId, ok: true, format, data });
-      } catch (error) {
-        const detail = bounded(error instanceof Error ? error.message : String(error));
-        post({ type: 'exported', requestId, ok: false, error: detail });
+startEditor((editorApp) => {
+  editor = editorApp;
+  return {
+    render,
+    // A failed import can leave the instance unable to import later diagrams (ADR 0008).
+    renderFailed: (message) => {
+      linter.clear(createModeler(message.platform));
+    },
+    serialize: async () => {
+      if (!modeler) throw new Error('no diagram');
+      const { xml } = await modeler.saveXML({ format: true });
+      if (xml === undefined) throw new Error('empty diagram');
+      return xml;
+    },
+    exportImage: (format) => {
+      if (!modeler) throw new Error('No diagram is shown');
+      return exportImage(modeler, format);
+    },
+    handle: (message) => {
+      switch (message.type) {
+        case 'settings':
+          linter.setEnabled(message.linting, modeler, platform);
+          break;
+        case 'reveal':
+          if (modeler) linter.reveal(modeler, message.elementId);
+          break;
+        case 'templates':
+          templates = { c7: message.c7, c8: message.c8 };
+          if (modeler && platform) applyTemplates(modeler, platform);
+          break;
       }
-      break;
-    }
-    case 'reveal':
-      if (modeler) linter.reveal(modeler, message.elementId);
-      break;
-    case 'templates':
-      templates = { c7: message.c7, c8: message.c8 };
-      if (modeler && platform) applyTemplates(modeler, platform);
-      break;
-  }
+    },
+  };
 });
-
-// Leaving the editor (another tab, the text editor, the sidebar) hands over pending changes.
-window.addEventListener('blur', () => {
-  void editSync.sendNow();
-});
-
-routeUndoRedoToHost(() => editSync.sendNow());
-
-post({ type: 'ready' });
