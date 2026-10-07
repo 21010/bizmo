@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectExecutionPlatform } from '../../../src/shared/bpmn/platform';
+import { detectExecutionPlatform } from '../../../src/shared/camunda/platform';
 import {
   DEFAULT_PLATFORM_VERSION,
   newDiagramXml,

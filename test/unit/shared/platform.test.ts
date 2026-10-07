@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { detectExecutionPlatform } from '../../../src/shared/bpmn/platform';
+import { detectExecutionPlatform } from '../../../src/shared/camunda/platform';
 
 const fixture = (name: string) => readFileSync(`test/fixtures/bpmn/${name}`, 'utf8');
 
