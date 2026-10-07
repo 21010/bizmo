@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import type { Browser } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { checkExportedImage } from '../../src/extension/core/imageExport';
 import type { WebviewToHostMessage } from '../../src/shared/protocol';
 import { fixture, launchBrowser, openWebview, type WebviewPage } from './harness';
 
@@ -119,18 +120,64 @@ describe('element templates', () => {
 
   it('never loads a template icon from the network', async () => {
     expectedViolations = /attacker\.example/;
-    const requests: string[] = [];
+    // Requests that went out. Chromium also reports loads the CSP blocked, as failed with "csp".
+    const sent: string[] = [];
     webview = await openWebview(browser, 'bpmn');
     const w = webview;
-    w.page.on('request', (request) => requests.push(request.url()));
+    w.page.on('requestfinished', (request) => sent.push(request.url()));
+    w.page.on('requestfailed', (request) => {
+      if (request.failure()?.errorText !== 'csp') sent.push(request.url());
+    });
     const remote = template('remote-icon.c8.json');
+    // The canvas draws the icon stored in the diagram (applying the template stores it there).
     const diagram = fixture('c8-templated.bpmn')
       .replace('io.bizmo.test.notify', 'io.bizmo.test.remoteicon')
-      .replace('type="notify"', 'type="remote"');
+      .replace('type="notify"', 'type="remote"')
+      .replace(
+        'id="Task_Notify"',
+        'id="Task_Notify" zeebe:modelerTemplateIcon="https://attacker.example/leak.svg"',
+      );
     await w.send({ type: 'templates', c7: [], c8: [remote] });
     await w.send({ type: 'init', content: diagram, version: 1, platform: 'c8' });
     expect(await w.waitForImport(1)).toMatchObject({ ok: true });
+    // The icon is on the canvas, so the browser would fetch it without the CSP.
+    await expect
+      .poll(() => w.page.locator('image[href*="attacker.example"]').count())
+      .toBeGreaterThan(0);
     await w.page.waitForTimeout(500);
-    expect(requests.filter((url) => url.includes('attacker.example'))).toEqual([]);
+    expect(sent.filter((url) => url.includes('attacker.example'))).toEqual([]);
+    expect(await w.violations()).toEqual(
+      expect.arrayContaining([expect.stringMatching(/attacker\.example/)]),
+    );
+  });
+
+  it('leaves remote template icons out of exported images', async () => {
+    expectedViolations = /attacker\.example/;
+    webview = await openWebview(browser, 'bpmn');
+    const w = webview;
+    // The canvas draws the icon stored in the diagram, so any file can carry a remote one.
+    const diagram = fixture('c8-templated.bpmn').replace(
+      'id="Task_Notify"',
+      'id="Task_Notify" zeebe:modelerTemplateIcon="https://attacker.example/leak.svg"',
+    );
+    await w.send({ type: 'init', content: diagram, version: 1, platform: 'c8' });
+    expect(await w.waitForImport(1)).toMatchObject({ ok: true });
+    await expect
+      .poll(() => w.page.locator('image[href*="attacker.example"]').count())
+      .toBeGreaterThan(0);
+
+    await w.send({ type: 'export', requestId: 1, format: 'svg' });
+    type Exported = Extract<WebviewToHostMessage, { type: 'exported' }>;
+    let exported: Exported | undefined;
+    await expect
+      .poll(async () => {
+        exported = (await w.posted()).find((m): m is Exported => m.type === 'exported');
+        return exported !== undefined;
+      })
+      .toBe(true);
+    if (!exported?.ok) throw new Error(`export failed: ${JSON.stringify(exported)}`);
+    expect(exported.data).not.toContain('attacker.example');
+    expect(exported.data).toContain('Task_Notify');
+    expect(checkExportedImage('svg', exported.data).ok).toBe(true);
   });
 });

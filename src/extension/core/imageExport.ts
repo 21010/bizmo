@@ -11,15 +11,30 @@ const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
 const SVG_START =
   /^\s*(<\?xml[^>]*\?>\s*)?(<!--[\s\S]*?-->\s*)*(<!DOCTYPE svg[^[>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/;
 
+/** Elements that run code or embed documents; none belong in a diagram image. */
+const ACTIVE_ELEMENT = /<(?:script|foreignObject|iframe|embed|object|set|animate\w*)[\s>/]/i;
+/** Event handler attributes, only inside tags: label text may contain "on…=", and its "<" is escaped. */
+const EVENT_HANDLER = /<[^>]*\son[a-z]+\s*=/i;
+/**
+ * A link or reference to anything but a fragment (`#id`, markers) or an inline image: remote
+ * content, `javascript:` URLs, other files. Checked inside tags, like event handlers.
+ */
+const EXTERNAL_HREF = /<[^>]*\s(?:[\w-]+:)?href\s*=(?!\s*["']?\s*(?:#|data:image\/))/i;
+const EXTERNAL_URL = /<[^>]*url\((?!\s*["']?\s*(?:#|data:image\/))/i;
+/** Style sheets could load remote resources; bpmn-js styles elements with attributes only. */
+const STYLE_ELEMENT = /<style[\s>/]/i;
+
 export type ImageCheck = { ok: true; bytes: Uint8Array } | { ok: false; reason: string };
 
 export function checkExportedImage(format: ImageFormat, data: string): ImageCheck {
   if (format === 'svg') {
     if (!SVG_START.test(data)) return { ok: false, reason: 'not SVG markup' };
     // Active content has no place in an exported diagram image.
-    // Event handlers only inside tags: label text may contain "on…=", and its "<" is escaped.
-    if (/<script[\s>]|<foreignObject[\s>]|<[^>]*\son[a-z]+\s*=/i.test(data)) {
+    if (ACTIVE_ELEMENT.test(data) || EVENT_HANDLER.test(data)) {
       return { ok: false, reason: 'SVG contains active content' };
+    }
+    if (EXTERNAL_HREF.test(data) || EXTERNAL_URL.test(data) || STYLE_ELEMENT.test(data)) {
+      return { ok: false, reason: 'SVG references external content' };
     }
     return { ok: true, bytes: new TextEncoder().encode(data) };
   }

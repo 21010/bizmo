@@ -85,10 +85,15 @@ export class DiagramLinter {
     }, DEBOUNCE_MS);
   }
 
-  /** Forgets problems, e.g. after a failed import or when linting is turned off. */
-  clear(modeler: LintableModeler | undefined): void {
+  /** Drops a scheduled or running lint, e.g. before its modeler is destroyed. */
+  cancel(): void {
     this.generation++;
     clearTimeout(this.timer);
+  }
+
+  /** Forgets problems, e.g. after a failed import or when linting is turned off. */
+  clear(modeler: LintableModeler | undefined): void {
+    this.cancel();
     this.reports = [];
     if (modeler) {
       const linting = modeler.get<LintingService>('linting', true);

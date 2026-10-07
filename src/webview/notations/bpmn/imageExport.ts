@@ -10,8 +10,30 @@ const MAX_PIXELS = 32 * 1024 * 1024;
 
 /** Returns SVG markup, or the PNG as base64. */
 export async function exportImage(modeler: BaseViewer, format: ImageFormat): Promise<string> {
-  const { svg } = await modeler.saveSVG();
+  const svg = withoutExternalImages((await modeler.saveSVG()).svg);
   return format === 'svg' ? svg : toBase64(await renderPng(svg));
+}
+
+const XLINK = 'http://www.w3.org/1999/xlink';
+const isInlineReference = (href: string): boolean => /^\s*(?:#|data:image\/)/i.test(href);
+
+/**
+ * Element template icons may point anywhere. The CSP keeps them off the canvas, so the image
+ * leaves them out too; the host refuses SVGs that reference external content.
+ */
+function withoutExternalImages(svg: string): string {
+  const start = svg.indexOf('<svg');
+  if (start === -1) return svg;
+  // Parsed without the bpmn-js header, so no DOCTYPE reaches the parser.
+  const doc = new DOMParser().parseFromString(svg.slice(start), 'image/svg+xml');
+  if (doc.querySelector('parsererror')) return svg;
+  const external = [...doc.querySelectorAll('image')].filter(
+    (image) =>
+      !isInlineReference(image.getAttribute('href') ?? image.getAttributeNS(XLINK, 'href') ?? ''),
+  );
+  if (external.length === 0) return svg;
+  for (const image of external) image.remove();
+  return svg.slice(0, start) + new XMLSerializer().serializeToString(doc.documentElement);
 }
 
 async function renderPng(svg: string): Promise<Blob> {

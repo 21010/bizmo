@@ -21,6 +21,15 @@ describe('detectExecutionPlatform', () => {
     expect(detectExecutionPlatform(xml)).toBe('c7');
   });
 
+  it('reads single-quoted attributes', () => {
+    expect(
+      detectExecutionPlatform("<definitions modeler:executionPlatform='Camunda Platform'>"),
+    ).toBe('c7');
+    expect(detectExecutionPlatform("<definitions modeler:executionPlatform='Camunda Cloud'>")).toBe(
+      'c8',
+    );
+  });
+
   it('ignores the attribute outside the definitions element', () => {
     const xml =
       '<definitions id="d"><process modeler:executionPlatform="Camunda Platform"/></definitions>';
