@@ -1,6 +1,6 @@
 // End-to-end DMN editing (ADR 0014): real VS Code driven with trusted mouse and keyboard input.
 // Covers typing in a decision table, undo/redo from inside a cell through VS Code's document
-// history, save, and DMN 1.1 files that must not change until the user changes them.
+// history, and save. DMN 1.1 files: dmnMigration.test.ts.
 import { copyFileSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -27,7 +27,6 @@ const cellText = (frame: Frame, id: string) =>
 beforeAll(async () => {
   workspace = mkdtempSync(join(tmpdir(), 'bizmo-e2e-dmn-'));
   copyFileSync('test/fixtures/dmn/c8-dish.dmn', join(workspace, 'dish.dmn'));
-  copyFileSync('test/fixtures/dmn/c7-dmn11.dmn', join(workspace, 'old.dmn'));
   vscode = await launchVsCode({ workspace });
   win = vscode.win;
 });
@@ -87,22 +86,5 @@ describe('DMN decision table in VS Code', () => {
       .poll(() => cellText(frame, 'OutputEntry_Winter'), { timeout: 5000 })
       .toBe('"Spareribs"XYZ');
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
-  });
-});
-
-describe('DMN 1.1 file in VS Code', () => {
-  it('opening does not change it; the first change converts; one undo restores it', async () => {
-    await win.keyboard.press(keys.close);
-    const frame = await openFromExplorer(win, 'old.dmn', '.dmn-decision-table-container');
-    await sleep(1000);
-    expect(await dirtyTabs()).toBe(0);
-    await frame.locator('td[data-element-id="outputEntry_winter"]').click();
-    await win.keyboard.press('End');
-    await win.keyboard.type('!');
-    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(1);
-    await sleep(600);
-    await win.keyboard.press(keys.undo);
-    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
-    expect(onDisk('old.dmn')).toContain('http://www.omg.org/spec/DMN/20151101/dmn.xsd');
   });
 });
