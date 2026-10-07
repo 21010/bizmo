@@ -127,10 +127,11 @@ describe('decision table', () => {
     const w = await open('c8-dish.dmn', 'c8');
     await drillDown(w, 'decision table');
     expect(await activeView(w)).toBe('dmn-decision-table-container');
-    expect(await panelVisible(w)).toBe(false);
+    // The panel follows dmn-js's `views.changed`, which comes just after the view is drawn.
+    await expect.poll(() => panelVisible(w)).toBe(false);
     await w.page.click('.view-drd-button');
     await expect.poll(() => activeView(w)).toBe('dmn-drd-container');
-    expect(await panelVisible(w)).toBe(true);
+    await expect.poll(() => panelVisible(w)).toBe(true);
   });
 
   it('typing commits each keystroke; the edit debounce combines fast typing', async () => {
