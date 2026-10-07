@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.2 — 2026-10-07
+
+- Undo no longer loses a change made while the previous change was still being written to the document.
+- Exported SVG images never reference external content. Remote template icons (`zeebe:modelerTemplateIcon`), which the editor never loads, are left out of exported images. SVGs with links, remote images or style sheets are refused before they are written.
+- Camunda 7 diagrams whose `modeler:executionPlatform` attribute uses single quotes are no longer opened as Camunda 8.
+- Files that mention `<!DOCTYPE` only in a comment, CDATA section, or attribute value are no longer blocked. Real DOCTYPE and ENTITY declarations still are.
+- If VS Code rejects a diagram change with an error, the diagram reloads from the file and keeps syncing later changes.
+- Linting no longer runs on a diagram that was just replaced (Camunda 7 ↔ 8 switch).
+
 ## 1.0.1 — 2026-10-04
 
 - The diagram keeps its own colors in every VS Code theme: the minimap button, context pad icons, and menus on the canvas no longer take the theme's text color and font (they were invisible in high-contrast themes and faint in dark ones).
