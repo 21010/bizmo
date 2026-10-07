@@ -81,6 +81,8 @@ const editSync = new EditSync(async () => {
  * path after a failed import (ADR 0008). Undo/redo keys never reach it (ADR 0012).
  */
 function createModeler(target: ExecutionPlatform): Modeler {
+  // A lint scheduled for the old modeler must not run on the destroyed instance.
+  linter.cancel();
   modeler?.destroy();
   const container = document.createElement('div');
   container.className = 'bizmo-canvas';

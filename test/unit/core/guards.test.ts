@@ -28,6 +28,25 @@ describe('checkXmlDocument', () => {
     expect(checkXmlDocument('<x><!entity a "b"></x>', MB).ok).toBe(false);
   });
 
+  it.each([
+    ['a comment', '<x><!-- <!DOCTYPE y> --></x>'],
+    ['a CDATA section', '<x><![CDATA[<!ENTITY a "b">]]></x>'],
+    ['a processing instruction', '<?note <!DOCTYPE y?><x/>'],
+    ['an attribute value', '<x a="&lt;!DOCTYPE" b=\'>\'/>'],
+  ])('accepts DOCTYPE text inside %s', (_label, xml) => {
+    expect(checkXmlDocument(xml, MB).ok).toBe(true);
+  });
+
+  it.each([
+    ['after a comment', '<!-- c --><!DOCTYPE x><x/>'],
+    ['in an unterminated comment', '<x/><!-- <!DOCTYPE x>'],
+    ['in an unterminated tag', '<x a="> <!DOCTYPE y>'],
+    ['after a stray "<" in a tag', '<x a="<"><!DOCTYPE y></x>'],
+    ['after a stray "<" in text', '<x>a < b <!ENTITY y "z"></x>'],
+  ])('blocks a DTD %s', (_label, xml) => {
+    expect(checkXmlDocument(xml, MB)).toMatchObject({ ok: false, reason: 'doctype' });
+  });
+
   it('rejects files above the size limit, counting UTF-8 bytes', () => {
     const result = checkXmlDocument('ż'.repeat(600), 1000); // 1200 bytes
     expect(result).toMatchObject({ ok: false, reason: 'tooLarge' });

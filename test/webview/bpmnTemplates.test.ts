@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import type { Browser } from 'playwright';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { checkExportedImage } from '../../src/extension/core/imageExport';
 import type { WebviewToHostMessage } from '../../src/shared/protocol';
 import { fixture, launchBrowser, openWebview, type WebviewPage } from './harness';
 
@@ -132,5 +133,34 @@ describe('element templates', () => {
     expect(await w.waitForImport(1)).toMatchObject({ ok: true });
     await w.page.waitForTimeout(500);
     expect(requests.filter((url) => url.includes('attacker.example'))).toEqual([]);
+  });
+
+  it('leaves remote template icons out of exported images', async () => {
+    expectedViolations = /attacker\.example/;
+    webview = await openWebview(browser, 'bpmn');
+    const w = webview;
+    const diagram = fixture('c8-templated.bpmn')
+      .replace('io.bizmo.test.notify', 'io.bizmo.test.remoteicon')
+      .replace('type="notify"', 'type="remote"');
+    await w.send({ type: 'templates', c7: [], c8: [template('remote-icon.c8.json')] });
+    await w.send({ type: 'init', content: diagram, version: 1, platform: 'c8' });
+    expect(await w.waitForImport(1)).toMatchObject({ ok: true });
+    await expect
+      .poll(() => w.page.locator('image[href*="attacker.example"]').count())
+      .toBeGreaterThan(0);
+
+    await w.send({ type: 'export', requestId: 1, format: 'svg' });
+    type Exported = Extract<WebviewToHostMessage, { type: 'exported' }>;
+    let exported: Exported | undefined;
+    await expect
+      .poll(async () => {
+        exported = (await w.posted()).find((m): m is Exported => m.type === 'exported');
+        return exported !== undefined;
+      })
+      .toBe(true);
+    if (!exported?.ok) throw new Error(`export failed: ${JSON.stringify(exported)}`);
+    expect(exported.data).not.toContain('attacker.example');
+    expect(exported.data).toContain('Task_Notify');
+    expect(checkExportedImage('svg', exported.data).ok).toBe(true);
   });
 });

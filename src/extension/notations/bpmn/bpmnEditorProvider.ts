@@ -106,7 +106,12 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
       return;
     }
     this.pendingReveals.set(uri.toString(), elementId);
-    await vscode.commands.executeCommand('vscode.openWith', uri, BPMN_VIEW_TYPE);
+    try {
+      await vscode.commands.executeCommand('vscode.openWith', uri, BPMN_VIEW_TYPE);
+    } catch (error) {
+      this.pendingReveals.delete(uri.toString());
+      this.log.warn(`Could not open ${uri.toString()} to show ${elementId}: ${String(error)}`);
+    }
   }
 
   /**
@@ -267,6 +272,7 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
       if (message.type === 'loadRejected') {
         this.log.warn(`${name}: not loaded (${message.reason})`);
         this.diagnostics.delete(document.uri);
+        this.pendingReveals.delete(key);
       }
       post(message);
     };
@@ -354,6 +360,10 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
               .then(() => handleEdit(message.content, message.baseVersion, message.requestId))
               .catch((error: unknown) => {
                 this.log.error(`${name}: ${String(error)}`);
+                // Every edit is answered, or the webview would hold back all later changes.
+                post({ type: 'editResult', outcome: 'failed', version: document.version });
+                sendDocument('update');
+                if (message.requestId !== undefined) pendingFlushes.get(message.requestId)?.();
               });
             break;
           case 'flushed':
@@ -374,6 +384,8 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
             } else {
               this.log.error(`${name}: import failed: ${message.error}`);
               this.diagnostics.delete(document.uri);
+              // A diagram that cannot be shown has no element to reveal.
+              this.pendingReveals.delete(key);
             }
             break;
           case 'log':
@@ -430,6 +442,7 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
         // Problems are only kept up to date while a diagram editor is open.
         this.editors.delete(key);
         this.diagnostics.delete(document.uri);
+        this.pendingReveals.delete(key);
       }
     });
   }

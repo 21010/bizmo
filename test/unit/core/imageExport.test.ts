@@ -11,6 +11,9 @@ describe('checkExportedImage', () => {
     '<?xml version="1.0" encoding="utf-8"?>\n<!-- created with bpmn-js / http://bpmn.io -->\n<svg width="10">',
     '  <svg>',
     '<svg><text>Ship only=3 &lt;b onload=x&gt;</text></svg>',
+    '<svg><path marker-end="url(\'#flow-end\')" style="marker-end: url(#a)"/><use href="#m"/></svg>',
+    '<svg><image xlink:href="data:image/svg+xml;utf8,%3Csvg/%3E" href=\' data:image/png;base64,AA\'/></svg>',
+    '<svg><text>see url(https://example.com) and href=https://example.com</text></svg>',
     '<?xml version="1.0"?>\n<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n<svg>',
   ])('accepts SVG markup %#', (svg) => {
     const result = checkExportedImage('svg', svg);
@@ -25,6 +28,16 @@ describe('checkExportedImage', () => {
     ['an event handler', '<svg onload="alert(1)"></svg>'],
     ['foreign HTML', '<svg><foreignObject><div/></foreignObject></svg>'],
     ['a DOCTYPE with entities', '<!DOCTYPE svg [<!ENTITY a "aaaa">]><svg>&a;</svg>'],
+    ['a javascript: link', '<svg><a href="javascript:alert(1)"><rect/></a></svg>'],
+    ['a remote image', '<svg><image xlink:href="https://example.com/x.png"/></svg>'],
+    ['an unquoted remote reference', '<svg><use href=https://example.com/s.svg#a /></svg>'],
+    ['a remote url()', '<svg><rect fill="url(https://example.com/p.svg#p)"/></svg>'],
+    ['a style sheet', '<svg><style>@import "https://example.com/a.css";</style></svg>'],
+    [
+      'an animation setting a link',
+      '<svg><a><set attributeName="href" to="javascript:x"/></a></svg>',
+    ],
+    ['an embedded document', '<svg><iframe src="x"/></svg>'],
   ])('rejects SVG with %s', (_label, svg) => {
     expect(checkExportedImage('svg', svg).ok).toBe(false);
   });
