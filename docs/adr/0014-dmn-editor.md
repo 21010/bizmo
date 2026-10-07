@@ -48,7 +48,7 @@ What DMN brings that BPMN did not:
    - If the active view's decision is deleted, dmn-js opens the first view, normally the DRD.
 7. **Export: option 1, DRD only.**
    - The commands `bizmo.dmn.exportSvg`/`exportPng` call the DRD viewer's `saveSVG` and go through the same host check as BPMN.
-   - With another view active, the webview answers `exported { ok: false }` with the message "Switch to the decision requirements diagram to export an image."
+   - With another view active, the webview answers `exported { ok: false }` with the message "Switch to the decision requirements diagram to export an image." A file without a DRD (DMN 1.1 without DI) gets a message saying it has no diagram to export.
 8. **Contributions**, mirroring BPMN:
    - custom editor `bizmo.dmn` for `*.dmn` (priority `default`);
    - **Open as Text** and **Open Diagram**;
@@ -58,15 +58,25 @@ What DMN brings that BPMN did not:
 9. **Bundles.** The new webview bundle is `dist/webview/dmn.js` and `.css`, loaded only by DMN editors (ADR 0004). diagram-js and the properties panel core are duplicated across the BPMN and DMN bundles. That is accepted for isolation, and `check:vsix` gets a new size budget.
 10. **Security.** The CSP and message validation are unchanged (ADR 0008). Before adoption, the spike checks that the DMN bundle evaluates no code at runtime (no `eval`/`new Function`; `camunda-dmn-js`'s own bundle has none). The tables need no more than `style-src 'unsafe-inline'`, which BPMN already allows. Like BPMN, DMN files are checked for size and DOCTYPE on the host before import (`xmlDocumentMessage`).
 
-## Spike before implementation
+## Spike results (2026-10-07)
 
-Each item below is a check. If one fails, this ADR is revised before implementation starts.
+A prototype on the shared core (branch `spike/dmn`, details in `spikes/dmn/README.md`) ran browser checks under the production CSP and end-to-end checks in real VS Code. **All checks passed; no decision needs revising.**
 
-- Opening, editing a cell, undo and redo, and an external change in each view type, under the production CSP. Each change must produce exactly one document change and one VS Code undo step.
-- Cell editing: how often dmn-js commits while typing, and whether debounced sync (300 ms) keeps undo steps sensible.
-- Keyboard: dmn-js table navigation (Tab, Enter, arrows) does not clash with the capture-phase undo routing or VS Code keybindings (as in ADR 0012).
-- Migration: DMN 1.1 and 1.2 fixtures from Camunda 7 projects import correctly after migration and save as valid DMN 1.3.
-- Bundle size and the absence of runtime code evaluation (decision 10).
+- **CSP:** 0 violations and 0 page errors across all fixtures and views. `dmn.js` contains one `new Function` (dom-iterator's selector compiler), the same code `bpmn.js` already ships, and it was never reached.
+- **Typing:** dmn-js commits every keystroke in a table cell. The 300 ms edit debounce combines fast typing, and a longer pause starts a new step. In VS Code, each commit is exactly one undo step, as for BPMN panel fields.
+- **Undo:** Ctrl+Z, Ctrl+Y and Ctrl+Shift+Z inside a cell reach VS Code's undo and redo. The cell does not undo locally, and the view stays on the table.
+- **Keyboard:** table navigation (Tab, Shift+Tab, Enter, Shift+Enter, arrows) does not clash with undo routing.
+- **Views:** an external change or undo keeps the active view, and the saved view is restored when the webview is recreated.
+- **DMN 1.1/1.2:** opening leaves the document clean. The first change writes DMN 1.3 with IDs kept, and one undo restores the original.
+- **Export:** SVG and PNG from the DRD pass the host check. Other views get the explanatory message.
+- **Size:** `dmn.js` is 1.3 MB minified. The `.vsix` stays within its budget. `THIRD_PARTY_NOTICES.md` must be regenerated.
+
+What the results add to the decisions:
+
+- DMN 1.1 files written without diagram interchange (DI) have no DRD and open in their decision table. For these, the export message says the file has no diagram, rather than asking the user to switch views.
+- The DMN properties panel starts with its groups collapsed (unlike BPMN). This is kept as shipped.
+
+Still open for the implementation tests: boxed expressions, DRD keyboard shortcuts, real DMN 1.1 files from Camunda Modeler < 4 (layout in `biodi:bounds`), several editors on one file, and Revert.
 
 ## Consequences
 
