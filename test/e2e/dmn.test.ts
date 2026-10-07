@@ -56,35 +56,37 @@ describe('DMN decision table in VS Code', () => {
     expect(await cellText(frame, 'OutputEntry_Winter')).toBe('"Spareribs"XY');
   });
 
+  it('Ctrl+S right after typing saves that change too (pre-save flush)', async () => {
+    await win.keyboard.type('Z');
+    await win.keyboard.press(keys.save); // well within the 300 ms debounce
+    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
+    expect(onDisk('dish.dmn')).toContain('"Spareribs"XYZ');
+  });
+
+  // Typing right after an undo/redo is not covered: those keys can be dropped (#18).
   it('Ctrl+Z in the cell undoes one change through VS Code and stays in the table', async () => {
     await win.keyboard.press(keys.undo);
     await expect
       .poll(() => cellText(frame, 'OutputEntry_Winter'), { timeout: 5000 })
-      .toBe('"Spareribs"X');
+      .toBe('"Spareribs"XY');
     expect(await frame.locator('.dmn-decision-table-container').isVisible()).toBe(true);
-    expect(await dirtyTabs()).toBe(1);
+    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(1);
     await win.keyboard.press(keys.undo);
     await expect
       .poll(() => cellText(frame, 'OutputEntry_Winter'), { timeout: 5000 })
-      .toBe('"Spareribs"');
-    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
+      .toBe('"Spareribs"X');
   });
 
-  it('redo re-applies one change', async () => {
+  it('redo re-applies one change; back at the saved version the tab is clean', async () => {
     await win.keyboard.press(keys.redo);
     await expect
       .poll(() => cellText(frame, 'OutputEntry_Winter'), { timeout: 5000 })
-      .toBe('"Spareribs"X');
-    await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(1);
-  });
-
-  it('Ctrl+S right after typing saves that change too (pre-save flush)', async () => {
-    // Keys typed within about a second of a VS Code undo/redo are dropped (#18).
-    await sleep(1200);
-    await win.keyboard.type('Z');
-    await win.keyboard.press(keys.save); // well within the 300 ms debounce
+      .toBe('"Spareribs"XY');
+    await win.keyboard.press(keys.redo);
+    await expect
+      .poll(() => cellText(frame, 'OutputEntry_Winter'), { timeout: 5000 })
+      .toBe('"Spareribs"XYZ');
     await expect.poll(dirtyTabs, { timeout: 5000 }).toBe(0);
-    expect(onDisk('dish.dmn')).toContain('"Spareribs"XZ');
   });
 });
 
