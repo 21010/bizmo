@@ -198,7 +198,7 @@ describe('DMN editor', function () {
       await vscode.commands.executeCommand(command, uri);
       const result = await poll(() => stateOf(uri)?.lastImport, `${command} import`);
       assert.equal(result.ok, true);
-      assert.ok(result.ok && result.elementCount === 1);
+      assert.equal(result.elementCount, 1);
       assert.ok(
         readFileSync(uri.fsPath, 'utf8').includes(`modeler:executionPlatform="${platform}"`),
       );

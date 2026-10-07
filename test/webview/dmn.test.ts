@@ -251,8 +251,8 @@ describe('other views', () => {
     await w.page.mouse.move(600, 400);
     await w.page.mouse.wheel(0, 300);
     await expect
-      .poll(async () => (await w.state()) as { drdViewbox?: { y: number } })
-      .toMatchObject({ drdViewbox: { y: expect.any(Number) } });
+      .poll(async () => typeof ((await w.state()) as { drdViewbox?: { y: number } }).drdViewbox?.y)
+      .toBe('number');
     const { drdViewbox } = (await w.state()) as { drdViewbox: { x: number; y: number } };
     expect(drdViewbox.y).not.toBe(0);
 
