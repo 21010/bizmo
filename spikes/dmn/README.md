@@ -1,6 +1,6 @@
 # DMN prototype checks (ADR 0014)
 
-Prototype on the shared editor core (2026-10-07): `src/webview/notations/dmn/main.ts` (webview on `startEditor`) and `src/extension/notations/dmn/dmnEditorProvider.ts` (host on `EditorSession`). It is not a release. Results feed ADR 0014.
+Checks run on a prototype on the shared editor core (2026-10-07). Results feed ADR 0014. The prototype became the DMN editor (`src/webview/notations/dmn/`, `src/extension/notations/dmn/`), and its checks became `test/webview/dmn.test.ts` and `test/e2e/dmn.test.ts`.
 
 Versions: camunda-dmn-js 3.8.3, dmn-js 17.12.3, dmn-js-properties-panel 3.12.0, @bpmn-io/dmn-migrate 0.7.1, Chromium (Playwright 1.63), VS Code stable.
 

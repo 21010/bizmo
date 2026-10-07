@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- DMN editor for Camunda 7 and Camunda 8 (ADR 0014):
+  - `.dmn` files open as decision requirements diagrams, decision tables, and literal expressions, with Camunda properties in the DRD.
+  - Edits go into the file's document, with VS Code's undo and redo, also from inside a table cell.
+  - New DMN diagrams from File → New File….
+  - The DRD exports as SVG or PNG.
+  - DMN 1.1 and 1.2 files are shown as DMN 1.3 and are converted only by your first change.
+- The open DMN view, and the DRD's zoom and scroll position, are kept across tab switches and file changes.
+
 ## 1.0.2 — 2026-10-07
 
 - Undo no longer loses a change made while the previous change was still being written to the document.

@@ -6,11 +6,23 @@
   display: grid;
   /* The panel never takes more than half of the editor, so narrow columns keep a usable canvas. */
   grid-template-columns: minmax(0, 1fr) 14px min(var(--bizmo-panel-width), 50%);
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .bizmo-layout.bizmo-panel-collapsed {
   grid-template-columns: minmax(0, 1fr) 14px 0;
+}
+
+/* Views without a properties panel (e.g. DMN decision tables): the canvas takes the full width;
+   the user's panel width and collapsed state are kept for when the panel returns. */
+.bizmo-layout.bizmo-panel-unavailable {
+  grid-template-columns: minmax(0, 1fr) 0 0;
+}
+
+.bizmo-layout.bizmo-panel-unavailable > .bizmo-rail,
+.bizmo-layout.bizmo-panel-unavailable > .bizmo-panel {
+  display: none;
 }
 
 .bizmo-canvas-host {

@@ -18,3 +18,14 @@ declare module 'bpmn-moddle' {
   /** Factory (called without `new`) with additional moddle packages. */
   export function BpmnModdle(packages?: Record<string, unknown>): Moddle;
 }
+
+declare module 'dmn-moddle' {
+  interface Moddle {
+    fromXML(
+      xml: string,
+      typeName?: string,
+    ): Promise<{ rootElement: object; warnings: { message: string }[] }>;
+  }
+  /** Factory (called without `new`) with additional moddle packages. */
+  export function DmnModdle(packages?: Record<string, unknown>): Moddle;
+}

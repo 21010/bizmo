@@ -1,6 +1,6 @@
 # 0014. DMN editor: scope and design for version 1
 
-- Status: proposed
+- Status: accepted (implemented in 1.1)
 - Date: 2026-10-07
 
 ## Context

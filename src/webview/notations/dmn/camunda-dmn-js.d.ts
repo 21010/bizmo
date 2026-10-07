@@ -1,6 +1,8 @@
 // The parts of camunda-dmn-js, dmn-js and @bpmn-io/dmn-migrate (untyped) that Bizmo uses.
 
 declare module 'camunda-dmn-js' {
+  import type Canvas from 'diagram-js/lib/core/Canvas';
+
   /** One view of a DMN file: the DRD, or a decision's table or expression. */
   export interface DmnView {
     /** `drd`, `decisionTable`, `literalExpression`, or `boxedExpression`. */
@@ -11,6 +13,8 @@ declare module 'camunda-dmn-js' {
   /** The editor of one view type (diagram-js for the DRD, table/text editors otherwise). */
   export interface DmnViewer {
     on(event: string, callback: (event: never) => void): void;
+    /** The DRD's diagram-js canvas (only the DRD viewer has one). */
+    get(name: 'canvas'): Canvas;
     saveSVG?(): Promise<{ svg: string }>;
   }
 
@@ -27,7 +31,8 @@ declare module 'camunda-dmn-js' {
     constructor(options: DmnModelerOptions);
     importXML(xml: string): Promise<{ warnings: unknown[] }>;
     saveXML(options?: { format?: boolean }): Promise<{ xml?: string }>;
-    getDefinitions(): { drgElement?: unknown[] } | undefined;
+    /** `dmnDI` holds the DRD's layout (diagram interchange); DMN 1.1 files may have none. */
+    getDefinitions(): { drgElement?: unknown[]; dmnDI?: { diagrams?: unknown[] } } | undefined;
     getViews(): DmnView[];
     getActiveView(): DmnView | undefined;
     getActiveViewer(): DmnViewer | undefined;

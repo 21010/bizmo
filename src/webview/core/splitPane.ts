@@ -7,6 +7,8 @@ import { getState, updateState } from './bridge';
 export interface SplitPane {
   canvasHost: HTMLElement;
   panelHost: HTMLElement;
+  /** Hides the rail and panel for views that have no panel; the saved layout is kept. */
+  setPanelAvailable: (available: boolean) => void;
 }
 
 interface PanelState {
@@ -116,6 +118,14 @@ export function createSplitPane(root: HTMLElement, panelLabel: string): SplitPan
     save();
   });
 
+  let available = true;
+  const setPanelAvailable = (next: boolean) => {
+    if (next === available) return;
+    available = next;
+    layout.classList.toggle('bizmo-panel-unavailable', !available);
+    window.dispatchEvent(new Event('resize'));
+  };
+
   apply();
-  return { canvasHost, panelHost };
+  return { canvasHost, panelHost, setPanelAvailable };
 }

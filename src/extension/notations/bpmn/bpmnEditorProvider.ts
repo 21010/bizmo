@@ -1,10 +1,6 @@
 import * as vscode from 'vscode';
-import {
-  LIMITS,
-  type ImageFormat,
-  type LintProblem,
-  type LintSeverity,
-} from '../../../shared/protocol';
+import { LIMITS, type LintProblem, type LintSeverity } from '../../../shared/protocol';
+import { EditorRegistry } from '../../core/editorRegistry';
 import {
   EditorSession,
   initialEditorState,
@@ -43,10 +39,8 @@ type BpmnSession = EditorSession<BpmnEditorState>;
  * element templates (ADR 0010) and linting with VS Code diagnostics (ADR 0013).
  */
 export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vscode.Disposable {
-  readonly states = new Set<BpmnEditorState>();
+  readonly editors = new EditorRegistry<BpmnEditorState>();
   private readonly diagnostics = vscode.languages.createDiagnosticCollection('bizmo');
-  /** Open diagram editors per document URI (several editors per document are possible). */
-  private readonly editors = new Map<string, Set<BpmnSession>>();
   /** Elements to reveal once a diagram opened by `showProblem` has rendered. */
   private readonly pendingReveals = new Map<string, string>();
 
@@ -74,7 +68,7 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
       return;
     }
     if (!this.diagnostics.has(uri)) return;
-    const session = this.editors.get(uri.toString())?.values().next().value;
+    const session = this.editors.first(uri);
     if (session) {
       session.panel.reveal();
       reveal(session, elementId);
@@ -87,23 +81,6 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
       this.pendingReveals.delete(uri.toString());
       this.log.warn(`Could not open ${uri.toString()} to show ${elementId}: ${String(error)}`);
     }
-  }
-
-  /**
-   * Exports the diagram shown for `documentUri` as an image. Asks where to save it unless
-   * `target` is given (tests, other commands). Returns the written file.
-   */
-  async exportImage(
-    format: ImageFormat,
-    documentUri: vscode.Uri,
-    target?: vscode.Uri,
-  ): Promise<vscode.Uri | undefined> {
-    const session = this.editors.get(documentUri.toString())?.values().next().value;
-    if (!session) {
-      void vscode.window.showWarningMessage('Open the diagram in Bizmo to export it.');
-      return undefined;
-    }
-    return session.exportImage(format, target);
   }
 
   private lintingEnabled(): boolean {
@@ -148,7 +125,6 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
     const key = document.uri.toString();
     const state: BpmnEditorState = { ...initialEditorState(document.uri), templateErrors: 0 };
-    this.states.add(state);
 
     const sendSettings = () => {
       session.post({ type: 'settings', linting: this.lintingEnabled() });
@@ -213,19 +189,12 @@ export class BpmnEditorProvider implements vscode.CustomTextEditorProvider, vsco
         },
         disposed: () => {
           for (const subscription of subscriptions) subscription.dispose();
-          this.states.delete(state);
-          handles.delete(session);
-          if (handles.size === 0) {
-            // Problems are only kept up to date while a diagram editor is open.
-            this.editors.delete(key);
-            forgetDiagram();
-          }
+          // Problems are only kept up to date while a diagram editor is open.
+          if (this.editors.remove(session)) forgetDiagram();
         },
       },
     });
-    const handles = this.editors.get(key) ?? new Set<BpmnSession>();
-    handles.add(session);
-    this.editors.set(key, handles);
+    this.editors.add(session);
     void this.templates.noticeRestrictedMode();
   }
 }

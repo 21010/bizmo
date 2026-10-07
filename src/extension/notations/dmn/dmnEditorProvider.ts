@@ -1,16 +1,15 @@
 import type * as vscode from 'vscode';
-import {
-  EditorSession,
-  initialEditorState,
-  xmlDocumentMessage,
-  type EditorState,
-} from '../../core/editorSession';
+import { EditorRegistry } from '../../core/editorRegistry';
+import { EditorSession, initialEditorState, xmlDocumentMessage } from '../../core/editorSession';
 
 export const DMN_VIEW_TYPE = 'bizmo.dmn';
 
-/** DMN modeler (ADR 0014, prototype) on the shared editor session. */
+/**
+ * DMN modeler (ADR 0014) as a text-backed custom editor on the shared editor session. Unlike
+ * BPMN, it has no element templates and no linting (#17).
+ */
 export class DmnEditorProvider implements vscode.CustomTextEditorProvider {
-  readonly states = new Set<EditorState>();
+  readonly editors = new EditorRegistry();
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -18,20 +17,21 @@ export class DmnEditorProvider implements vscode.CustomTextEditorProvider {
   ) {}
 
   resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): void {
-    const state = initialEditorState(document.uri);
-    this.states.add(state);
-    new EditorSession({
+    const session: EditorSession = new EditorSession({
       document,
       panel,
       extensionUri: this.extensionUri,
       log: this.log,
       bundle: 'dmn',
       title: 'DMN diagram',
-      state,
+      state: initialEditorState(document.uri),
       load: xmlDocumentMessage,
       hooks: {
-        disposed: () => this.states.delete(state),
+        disposed: () => {
+          this.editors.remove(session);
+        },
       },
     });
+    this.editors.add(session);
   }
 }
